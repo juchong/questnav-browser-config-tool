@@ -37,6 +37,9 @@ Thumbs.db
 .idea/
 .cursor/
 
+# Documentation (internal/development only)
+.docs/
+
 # Temporary files
 *.tmp
 .cache/

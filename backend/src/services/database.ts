@@ -2,7 +2,8 @@ import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { ConfigProfile, ExecutionLog } from '../models/types';
+import bcrypt from 'bcrypt';
+import { ConfigProfile, ExecutionLog, AdminUser } from '../models/types';
 
 const dbPath = process.env.DATABASE_PATH || './data/questnav.db';
 const dbDir = path.dirname(dbPath);
@@ -38,6 +39,14 @@ function initializeDatabase() {
       FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS admin_user (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_logs_profile_id ON execution_logs(profile_id);
     CREATE INDEX IF NOT EXISTS idx_logs_executed_at ON execution_logs(executed_at);
   `);
@@ -47,6 +56,9 @@ function initializeDatabase() {
   if (count.count === 0) {
     insertDefaultProfile();
   }
+
+  // Initialize admin user from environment variables
+  initializeAdminUser();
 }
 
 function insertDefaultProfile() {
@@ -94,6 +106,37 @@ function insertDefaultProfile() {
 
   const stmt = db.prepare('INSERT INTO profiles (name, description, commands) VALUES (?, ?, ?)');
   stmt.run(defaultProfile.name, defaultProfile.description, JSON.stringify(defaultProfile.commands));
+}
+
+async function initializeAdminUser() {
+  const username = process.env.ADMIN_USERNAME || 'admin';
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!password) {
+    console.warn('WARNING: ADMIN_PASSWORD not set in environment variables. Admin authentication will not work.');
+    return;
+  }
+
+  // Check if admin user exists
+  const existingUser = db.prepare('SELECT * FROM admin_user WHERE username = ?').get(username) as AdminUser | undefined;
+
+  // Hash the password from environment
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  if (existingUser) {
+    // Update password if it changed
+    const passwordMatch = await bcrypt.compare(password, existingUser.password_hash);
+    if (!passwordMatch) {
+      console.log('Admin password changed, updating...');
+      db.prepare('UPDATE admin_user SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?')
+        .run(passwordHash, username);
+    }
+  } else {
+    // Create new admin user
+    console.log('Creating admin user...');
+    db.prepare('INSERT INTO admin_user (username, password_hash) VALUES (?, ?)')
+      .run(username, passwordHash);
+  }
 }
 
 // Profile operations
@@ -186,6 +229,19 @@ export const logDb = {
       failure: failure.count,
       successRate: total.count > 0 ? (success.count / total.count) * 100 : 0
     };
+  }
+};
+
+// Admin user operations
+export const adminUserDb = {
+  getByUsername(username: string): AdminUser | undefined {
+    return db.prepare('SELECT * FROM admin_user WHERE username = ?').get(username) as AdminUser | undefined;
+  },
+
+  async verifyPassword(username: string, password: string): Promise<boolean> {
+    const user = this.getByUsername(username);
+    if (!user) return false;
+    return bcrypt.compare(password, user.password_hash);
   }
 };
 

@@ -38,6 +38,7 @@ See [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) for detailed platform information
 
 ### Administration
 - **Admin Interface**: Web-based UI for managing configuration profiles
+- **Authentication**: Secure login system for admin access
 - **Execution Logging**: Track configuration history and success rates
 - **Profile Management**: Create, edit, and delete configuration profiles
 
@@ -78,6 +79,31 @@ Based on the [Tango ADB](https://tangoadb.dev/) implementation (formerly ya-weba
 - (Optional) Docker and Docker Compose for containerized deployment
 
 ## Quick Start
+
+### Important: Configure Authentication First
+
+Before running the application, you **must** set up authentication credentials:
+
+1. **Create a `.env` file in the `backend/` directory**:
+   ```bash
+   # Create the file
+   # Windows: New-Item backend\.env -ItemType File
+   # Linux/Mac: touch backend/.env
+   ```
+
+2. **Set admin credentials in `backend/.env`**:
+   ```env
+   ADMIN_USERNAME=admin
+   ADMIN_PASSWORD=your-secure-password-here
+   JWT_SECRET=generate-a-random-secret-here
+   ```
+
+   Generate a secure JWT secret:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+   ```
+
+See `env.example` for all available configuration options.
 
 ### Option 1: Automated Setup (Recommended)
 
@@ -225,8 +251,11 @@ The app provides clear visual feedback:
 
 ### Managing Configuration Profiles (Admin)
 
+**Important:** Admin access now requires authentication.
+
 1. Click "Admin Panel" in the top navigation
-2. **Create New Profile**:
+2. **Log in with your admin credentials** (set in `.env` file)
+3. **Create New Profile**:
    - Click "Create New Profile"
    - Enter a name and description
    - Add commands with descriptions and categories
@@ -298,6 +327,14 @@ setprop debug.oculus.guardian_pause [0|1]
 
 ## API Documentation
 
+### Authentication Endpoints
+
+- `POST /api/auth/login` - Login with admin credentials
+  - Body: `{ "username": "admin", "password": "your-password" }`
+  - Returns authentication cookie
+- `POST /api/auth/logout` - Logout and clear session
+- `GET /api/auth/status` - Check authentication status (requires auth)
+
 ### Public Endpoints
 
 - `GET /api/profiles` - List all configuration profiles
@@ -307,12 +344,14 @@ setprop debug.oculus.guardian_pause [0|1]
 
 ### Admin Endpoints
 
-- `POST /api/admin/profiles` - Create new profile
-- `PUT /api/admin/profiles/:id` - Update existing profile
-- `DELETE /api/admin/profiles/:id` - Delete profile
-- `GET /api/admin/logs` - View execution logs
-- `GET /api/admin/logs/profile/:id` - View logs for specific profile
-- `GET /api/admin/stats` - Get execution statistics
+**Note:** All admin endpoints now require authentication via JWT cookie.
+
+- `POST /api/admin/profiles` - Create new profile (requires auth)
+- `PUT /api/admin/profiles/:id` - Update existing profile (requires auth)
+- `DELETE /api/admin/profiles/:id` - Delete profile (requires auth)
+- `GET /api/admin/logs` - View execution logs (requires auth)
+- `GET /api/admin/logs/profile/:id` - View logs for specific profile (requires auth)
+- `GET /api/admin/stats` - Get execution statistics (requires auth)
 
 ## Troubleshooting
 
@@ -454,17 +493,23 @@ sudo udevadm control --reload-rules
 ## Security Considerations
 
 ### Current Implementation
-- **No Authentication**: Public access by default (as specified in requirements)
+- **Authentication Required**: Admin panel requires login with credentials from `.env`
+- **JWT Tokens**: Secure session management with httpOnly cookies
+- **Password Hashing**: Admin password is hashed with bcrypt
+- **Rate Limiting**: Login attempts are rate-limited (5 attempts per 15 minutes)
 - **Command Validation**: Backend validates command structure
-- **Rate Limiting**: API calls are rate-limited to prevent abuse
 - **HTTPS Required**: WebUSB only works over HTTPS in production
 
-### Adding Authentication (Future)
-The architecture supports adding authentication:
-1. Add authentication middleware to Express routes
-2. Implement JWT token system
-3. Add login UI to frontend
-4. Update CORS configuration
+### Security Best Practices
+1. **Strong Passwords**: Use a strong, unique password for `ADMIN_PASSWORD`
+2. **Secure JWT Secret**: Generate a random secret using:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+   ```
+3. **HTTPS in Production**: Always deploy with valid SSL certificate
+4. **Regular Updates**: Keep dependencies updated with `npm audit`
+5. **Environment Variables**: Never commit `.env` file to version control
+6. **Firewall**: Restrict access to admin routes at network level if possible
 
 ## Development
 

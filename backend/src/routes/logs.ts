@@ -1,5 +1,6 @@
 import express from 'express';
 import { logDb } from '../services/database';
+import { requireAuth } from '../middleware/auth';
 import { ExecutionLog, ApiResponse } from '../models/types';
 
 const router = express.Router();
@@ -41,7 +42,7 @@ router.post('/', (req, res) => {
 });
 
 // Get all logs (admin)
-router.get('/admin', (req, res) => {
+router.get('/admin', requireAuth, (req, res) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
     const logs = logDb.getAll(limit);
@@ -60,7 +61,7 @@ router.get('/admin', (req, res) => {
 });
 
 // Get logs for specific profile (admin)
-router.get('/admin/profile/:profileId', (req, res) => {
+router.get('/admin/profile/:profileId', requireAuth, (req, res) => {
   try {
     const profileId = parseInt(req.params.profileId);
     if (isNaN(profileId)) {
@@ -88,7 +89,7 @@ router.get('/admin/profile/:profileId', (req, res) => {
 });
 
 // Get statistics (admin)
-router.get('/admin/stats', (req, res) => {
+router.get('/admin/stats', requireAuth, (req, res) => {
   try {
     const stats = logDb.getStats();
     const response: ApiResponse = {

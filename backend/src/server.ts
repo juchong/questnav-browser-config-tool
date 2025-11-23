@@ -2,11 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import profilesRouter from './routes/profiles';
 import adminRouter from './routes/admin';
 import logsRouter from './routes/logs';
+import authRouter from './routes/auth';
 
 // Load environment variables
 dotenv.config();
@@ -39,8 +41,10 @@ app.use('/api/', limiter);
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // API routes
+app.use('/api/auth', authRouter);
 app.use('/api/profiles', profilesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/logs', logsRouter);

@@ -1,8 +1,12 @@
 import express from 'express';
 import { profileDb } from '../services/database';
+import { requireAuth } from '../middleware/auth';
 import { ConfigProfile, ApiResponse, AdbCommand } from '../models/types';
 
 const router = express.Router();
+
+// Apply authentication middleware to all admin routes
+router.use(requireAuth);
 
 // Validate ADB command structure
 function validateCommand(cmd: any): cmd is AdbCommand {

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ConnectionStatus from './components/ConnectionStatus';
 import ConfigurationPanel from './components/ConfigurationPanel';
 import ProgressDisplay from './components/ProgressDisplay';
 import AdminPanel from './components/AdminPanel';
 import ErrorHelp from './components/ErrorHelp';
 import AuthenticationStatus from './components/AuthenticationStatus';
+import Login from './components/Login';
 import { adbService } from './services/adbService';
 import { api } from './services/apiService';
+import { authService } from './services/authService';
 import { ConnectionState, ExecutionProgress, ConfigProfile } from './types';
 import './index.css';
 
@@ -18,6 +20,8 @@ interface ConnectionStatusInfo {
 
 function App() {
   const [view, setView] = useState<'user' | 'admin'>('user');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [connectionState, setConnectionState] = useState<ConnectionState>({
     connected: false
   });
@@ -30,6 +34,28 @@ function App() {
     status: 'idle'
   });
   const [isExecuting, setIsExecuting] = useState(false);
+
+  // Check authentication status on mount and when switching to admin view
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (view === 'admin') {
+        setIsCheckingAuth(true);
+        const isAuth = await authService.checkAuth();
+        setIsAuthenticated(isAuth);
+        setIsCheckingAuth(false);
+      }
+    };
+    checkAuth();
+  }, [view]);
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    await authService.logout();
+    setIsAuthenticated(false);
+  };
 
   // Check WebUSB support
   const isWebUsbSupported = adbService.isSupported();
@@ -247,7 +273,17 @@ function App() {
       </div>
 
       {view === 'admin' ? (
-        <AdminPanel />
+        <>
+          {isCheckingAuth ? (
+            <div className="card">
+              <p>Checking authentication...</p>
+            </div>
+          ) : isAuthenticated ? (
+            <AdminPanel onLogout={handleLogout} />
+          ) : (
+            <Login onLoginSuccess={handleLoginSuccess} />
+          )}
+        </>
       ) : (
         <>
           <ConnectionStatus

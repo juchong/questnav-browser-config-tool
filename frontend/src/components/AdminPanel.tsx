@@ -4,7 +4,11 @@ import { api } from '../services/apiService';
 
 const CATEGORIES = ['refresh_rate', 'performance', 'display', 'privacy', 'system'] as const;
 
-export default function AdminPanel() {
+interface AdminPanelProps {
+  onLogout: () => void;
+}
+
+export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [profiles, setProfiles] = useState<ConfigProfile[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +110,23 @@ export default function AdminPanel() {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <h1>Admin Panel</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1>Admin Panel</h1>
+        <button 
+          onClick={onLogout}
+          style={{
+            backgroundColor: '#ef4444',
+            color: 'white',
+            padding: '0.5rem 1rem',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 500
+          }}
+        >
+          Logout
+        </button>
+      </div>
       
       {/* Statistics */}
       {stats && (

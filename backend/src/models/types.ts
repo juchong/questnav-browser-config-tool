@@ -27,3 +27,22 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
+export interface AdminUser {
+  id?: number;
+  username: string;
+  password_hash: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface JwtPayload {
+  userId: number;
+  username: string;
+}
+

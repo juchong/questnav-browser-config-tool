@@ -43,3 +43,14 @@ export interface ExecutionProgress {
   error?: string;
 }
 
+export interface AuthResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
