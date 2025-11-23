@@ -11,7 +11,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -24,31 +23,18 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  overflow-x: hidden;
 }
 
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1rem;
-}
-
-@media (min-width: 768px) {
-  #root {
-    padding: 2rem;
-  }
+  padding: 2rem;
 }
 
 h1 {
-  font-size: 2em;
+  font-size: 3.2em;
   line-height: 1.1;
   margin-bottom: 1rem;
-}
-
-@media (min-width: 768px) {
-  h1 {
-    font-size: 3.2em;
-  }
 }
 
 button {
@@ -61,9 +47,6 @@ button {
   background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  min-height: 44px; /* iOS touch target minimum */
 }
 
 button:hover {
@@ -80,26 +63,11 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
 .card {
-  padding: 1.5em;
+  padding: 2em;
   background-color: #1a1a1a;
   border-radius: 8px;
   margin-bottom: 1rem;
-  word-wrap: break-word;
-}
-
-@media (min-width: 768px) {
-  .card {
-    padding: 2em;
-  }
-}
-
-input, select, textarea {
-  font-size: 16px; /* Prevents iOS zoom on focus */
 }
 
 @media (prefers-color-scheme: light) {
@@ -114,61 +82,6 @@ input, select, textarea {
   
   .card {
     background-color: #f9f9f9;
-  }
-}
-
-/* Mobile-specific improvements */
-@media (max-width: 767px) {
-  body {
-    font-size: 14px;
-  }
-  
-  h1 {
-    font-size: 1.75em;
-  }
-  
-  h2 {
-    font-size: 1.4em;
-  }
-  
-  h3 {
-    font-size: 1.2em;
-  }
-  
-  button {
-    padding: 0.75em 1.5em;
-    font-size: 1em;
-  }
-  
-  .card {
-    padding: 1em;
-  }
-}
-
-/* Authentication dialog image */
-.auth-dialog-image {
-  width: 100%;
-  max-width: min(400px, 100%);
-  height: auto;
-  display: block;
-}
-
-/* Responsive image sizing */
-@media (max-width: 480px) {
-  .auth-dialog-image {
-    max-width: 100%;
-  }
-}
-
-@media (min-width: 481px) and (max-width: 767px) {
-  .auth-dialog-image {
-    max-width: min(350px, 100%);
-  }
-}
-
-@media (min-width: 768px) {
-  .auth-dialog-image {
-    max-width: min(400px, 100%);
   }
 }
 

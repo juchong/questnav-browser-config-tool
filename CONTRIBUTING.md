@@ -1,4 +1,4 @@
-# Contributing to QuestNav Browser Configuration Tool
+# Contributing to Quest Navigation Browser Configuration Tool
 
 Thank you for your interest in contributing! This document provides guidelines and instructions for contributing to this project.
 

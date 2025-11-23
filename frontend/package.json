@@ -9,13 +9,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@yume-chan/adb": "^2.3.1",
-    "@yume-chan/adb-credential-web": "^2.1.0",
-    "@yume-chan/adb-daemon-webusb": "^2.1.0",
-    "@yume-chan/stream-extra": "^2.1.0",
-    "@yume-chan/struct": "^2.0.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "@yume-chan/adb": "^0.0.21",
+    "@yume-chan/adb-daemon-webusb": "^0.0.21",
+    "@yume-chan/stream-extra": "^0.0.21",
+    "@yume-chan/struct": "^0.0.21"
   },
   "devDependencies": {
     "@types/react": "^18.2.45",
@@ -25,3 +24,4 @@
     "vite": "^5.0.10"
   }
 }
+

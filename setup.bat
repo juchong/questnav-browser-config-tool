@@ -1,9 +1,9 @@
 @echo off
-REM QuestNav Browser Configuration Tool - Setup Script
+REM Quest Navigation Browser Configuration Tool - Setup Script
 REM This script sets up the development environment on Windows
 
 echo ================================================
-echo QuestNav Configuration Tool - Development Setup
+echo Quest Configuration Tool - Development Setup
 echo ================================================
 echo.
 

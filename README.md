@@ -1,106 +1,39 @@
-# QuestNav Browser Configuration Tool
+# Quest Navigation Browser Configuration Tool
 
-A modern web-based tool for automatically configuring Meta Quest 2 and Quest 3 headsets using predefined ADB commands. Built with React, TypeScript, Node.js, and WebUSB technology.
-
-## Supported Platforms
-
-This tool works on all platforms where WebUSB is supported in Chromium browsers:
-
-- ✅ **Windows** - Works on Windows 10+ with Chrome, Edge, or other Chromium browsers
-- ✅ **macOS** - Works on Mac with Chrome or Edge
-- ✅ **Linux** - Works on most Linux distributions with Chrome or Edge
-- ✅ **Android** - Works on Android phones with Chrome v112+
-
-**Important**: WebUSB requires **HTTPS** in production. For local development, `localhost` works over HTTP.
-
-See [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) for detailed platform information.
+A modern web-based tool for automatically configuring Meta Quest headsets using predefined ADB commands. Built with React, TypeScript, Node.js, and WebUSB technology.
 
 ## Features
 
-### Core Functionality
 - **One-Click Configuration**: Apply complete Quest configurations with a single button click
 - **WebUSB Integration**: Direct browser-to-device communication using modern WebADB technology
-- **Device Validation**: Automatically detects and validates Quest 2 and Quest 3 headsets
-- **Real-time Progress**: Visual feedback with countdown timers during command execution
-- **Smart Error Handling**: Contextual help with troubleshooting steps for common issues
-
-### User Interface
-- **Authentication Status Display**: Beautiful card-based progress indicator with:
-  - Visual countdown timer during authentication
-  - Reference image of USB debugging permission dialog
-  - Helpful tips and reminders
-  - Stage-specific styling (connecting, authenticating, etc.)
-- **Error Help System**: Structured error messages with:
-  - Icon-coded warnings vs errors
-  - Step-by-step troubleshooting guides
-  - Technical details toggle
-  - Retry and dismiss actions
-
-### Administration
 - **Admin Interface**: Web-based UI for managing configuration profiles
+- **Real-time Progress**: Visual feedback during command execution
 - **Execution Logging**: Track configuration history and success rates
-- **Profile Management**: Create, edit, and delete configuration profiles
-
-### Deployment
 - **Docker Ready**: Easy deployment with Docker Compose
-- **HTTPS Support**: Nginx reverse proxy configuration included
 
 ## Technology Stack
 
 - **Frontend**: React 18 + Vite + TypeScript
-- **WebADB**: @yume-chan/adb v2.3.1 (Tango ADB - modern, actively maintained)
+- **WebADB**: @yume-chan/adb packages (modern, actively maintained)
 - **Backend**: Node.js + Express + TypeScript
 - **Database**: SQLite (no external dependencies)
-- **Deployment**: Docker + Docker Compose + Nginx
-
-Based on the [Tango ADB](https://tangoadb.dev/) implementation (formerly ya-webadb).
+- **Deployment**: Docker + Docker Compose
 
 ## Prerequisites
 
 ### For Users
-
-**Platform Requirements:**
-- **Windows**: Windows 10 or later with Chrome, Edge, Brave, or Opera
-- **macOS**: Chrome or Edge browser
-- **Linux**: Most distributions with Chrome or Edge
-- **Android**: Chrome v112+ (most Android phones from 2020+)
-
-**Hardware:**
-- Meta Quest 2 or Quest 3 headset with Developer Mode enabled
-- USB-C cable (high-quality cable recommended)
-- For Android: Phone must support USB OTG (most modern phones do)
-
-**Note**: This tool is designed specifically for Quest 2 and Quest 3 headsets. Other Quest models or Android devices will be detected and a helpful message will be displayed.
+- A Chromium-based browser (Chrome, Edge, Brave, Opera)
+- Meta Quest headset with Developer Mode enabled
+- USB cable to connect Quest to computer
 
 ### For Developers
 - Node.js 20 LTS (recommended) - **Node.js 24+ may have native module compilation issues**
-- npm (included with Node.js)
+- npm or yarn
 - (Optional) Docker and Docker Compose for containerized deployment
 
 ## Quick Start
 
-### Option 1: Automated Setup (Recommended)
-
-**Windows (PowerShell):**
-```powershell
-.\start-dev.ps1
-```
-
-**macOS/Linux:**
-```bash
-chmod +x start-dev.sh
-./start-dev.sh
-```
-
-These scripts will:
-- Check for Node.js installation
-- Install dependencies for both frontend and backend
-- Start both servers in separate terminal windows
-- Open your browser automatically
-
-### Option 2: Manual Setup
-
-#### Development Mode
+### Development Mode
 
 1. **Clone the repository**
 ```bash
@@ -120,19 +53,25 @@ cd ../frontend
 npm install
 ```
 
-4. **Start the backend server** (Terminal 1)
+4. **Create environment file**
+```bash
+cp .env.example .env
+# Edit .env if needed (defaults are fine for development)
+```
+
+5. **Start the backend server** (Terminal 1)
 ```bash
 cd backend
 npm run dev
 ```
 
-5. **Start the frontend development server** (Terminal 2)
+6. **Start the frontend development server** (Terminal 2)
 ```bash
 cd frontend
 npm run dev
 ```
 
-6. **Open your browser**
+7. **Open your browser**
 Navigate to `http://localhost:5173`
 
 ### Production Deployment with Docker
@@ -157,71 +96,29 @@ docker-compose logs -f questnav-app
 
 ## Usage Guide
 
-### First-Time Setup
+### Enabling Developer Mode on Quest
 
-1. **Enable Developer Mode on Quest** (one-time setup)
-   - Create a developer account at [Meta Quest Developer Center](https://developer.oculus.com/)
-   - Install the Meta Quest mobile app on your phone
-   - Navigate to Menu → Devices → Your Quest → Developer Mode and toggle it on
-   - Restart your Quest headset
+1. Create a developer account at [Meta Quest Developer Center](https://developer.oculus.com/)
+2. Install the Meta Quest mobile app on your phone
+3. Open the app and navigate to Menu → Devices → Your Quest
+4. Select "Developer Mode" and toggle it on
+5. Restart your Quest headset
 
-2. **Prepare Your Connection**
-   - **Android**: Ensure your phone supports USB OTG (most modern phones do)
-   - **Desktop**: Use a high-quality USB-C cable
-   - **All Platforms**: Close any other apps that might use ADB (SideQuest, Meta Quest Developer Hub, etc.)
+### Connecting Your Quest
 
-### Connecting and Configuring
+1. Connect your Quest to your computer via USB cable
+2. Put on your headset - you should see a prompt asking to "Allow USB debugging"
+3. Check "Always allow from this computer" and tap OK
+4. In the web interface, click "Connect Quest"
+5. Select your Quest device from the browser prompt
 
-1. **Connect Your Quest**
-   - Connect your Quest 2/3 to your device via USB-C cable
-   - Open the web app in Chrome (or Edge)
-   - Click "Connect Quest"
-   - Select your Quest device from the browser popup
+### Applying a Configuration
 
-2. **First Connection Authentication**
-   - Put on your Quest headset
-   - You'll see an "Allow USB debugging?" dialog
-   - **Important**: Check "Always allow from this computer"
-   - Tap "OK" or "Allow"
-   - The web app shows a reference image and countdown timer
-
-3. **Apply Configuration**
-   - Once connected, select a configuration profile
-   - Review the commands that will be executed
-   - Click "Apply Configuration"
-   - Monitor the real-time progress indicator
-   - Wait for completion confirmation
-
-### Connection Status Indicators
-
-The app provides clear visual feedback:
-- **🔌 Connecting**: Establishing USB connection
-- **📱 Authenticating**: Waiting for Quest permission (with countdown timer)
-- **✅ Connected**: Ready to configure
-- **⚠️ Error**: Issue detected with troubleshooting steps
-
-### Platform-Specific Tips
-
-**Android:**
-- Use a USB-C to USB-C cable or adapter
-- Enable "OTG" mode if your phone has this setting
-- Keep screen on during configuration
-- Grant USB permissions when Chrome prompts
-
-**macOS:**
-- Use the standard USB-C cable from your Quest
-- Quit Meta Quest Developer Hub if running
-- USB 3.0 ports (blue) work best
-
-**Linux:**
-- May require udev rules (see Troubleshooting section)
-- Run `sudo usermod -aG plugdev $USER` and re-login
-- Avoid USB hubs - connect directly
-
-**Windows:**
-- Close SideQuest and Meta Quest Developer Hub
-- End any `adb.exe` processes in Task Manager
-- Try different USB ports if issues occur
+1. Ensure your Quest is connected (green status indicator)
+2. Select a configuration profile from the dropdown
+3. Review the commands that will be executed
+4. Click "Apply Configuration"
+5. Wait for the progress bar to complete
 
 ### Managing Configuration Profiles (Admin)
 
@@ -316,140 +213,34 @@ setprop debug.oculus.guardian_pause [0|1]
 
 ## Troubleshooting
 
-The app provides contextual error messages with troubleshooting steps. Below are additional details for common issues.
+### "WebUSB is not supported"
+- Use a Chromium-based browser (Chrome, Edge, Brave, Opera)
+- Safari and Firefox do not support WebUSB
 
-### Browser Compatibility
+### "No device selected" or Connection Failed
+1. Ensure Developer Mode is enabled on your Quest
+2. Check that your Quest is connected via USB
+3. Look for the "Allow USB debugging" prompt on your Quest headset
+4. Try unplugging and reconnecting the USB cable
+5. Try a different USB port or cable
+6. Restart your Quest headset
+7. Close other ADB programs (SideQuest, etc.)
 
-**"WebUSB is not supported"**
-- ✅ **Solution**: Use Chrome, Edge, Brave, or Opera (Chromium-based browsers)
-- ❌ **Not supported**: Safari, Firefox (they don't support WebUSB)
-- **Android**: Ensure Chrome is updated to v112 or later
-- **Desktop**: Use the latest version of your Chromium browser
+### Commands Not Working
+- Verify your Quest is still connected (check status indicator)
+- Some commands require specific Quest models or firmware versions
+- Check the execution logs in the Admin Panel for error details
 
-### Device Detection
+### "Connection lost" During Execution
+- Ensure USB cable is firmly connected
+- Try a higher quality USB cable
+- Avoid using USB hubs - connect directly to computer
 
-**"Incompatible Device Selected" (with device name shown)**
-- **Cause**: You selected a device that isn't Quest 2 or Quest 3
-- **Solution**: 
-  - Disconnect other Android devices (phones, tablets, Quest Pro, Quest 1)
-  - Connect only your Quest 2 or Quest 3
-  - Retry connection
-- **Supported**: "Quest 2", "Quest 3", "Quest 3S"
-
-**"No device selected" or Connection Cancelled**
-1. Click "Connect Quest" again
-2. When browser shows device picker, select your Quest
-3. Click "Connect" in the browser popup
-4. Ensure Quest is connected via USB and powered on
-
-**"Device Not Found"**
-1. Check USB cable is firmly connected
-2. Try a different USB cable (some are charge-only)
-3. Try a different USB port
-4. Ensure Quest is powered on and unlocked
-5. Enable USB debugging in Quest Settings > System > Developer
-6. Avoid USB hubs - connect directly
-
-### Authentication & Permission
-
-**"Access Denied" or "Authentication Failed"**
-1. Put on your Quest headset
-2. Look for "Allow USB debugging?" dialog
-3. Check "Always allow from this computer"
-4. Tap "Allow" or "OK"
-5. If dialog doesn't appear, restart your Quest
-6. Ensure Developer Mode is enabled
-
-**Authentication Timeout (3 minutes)**
-- The app waits up to 3 minutes for you to accept the prompt
-- Make sure to put on your headset and respond to the dialog
-- Check that Quest isn't in sleep mode
-
-### Device Busy
-
-**"Device In Use" or "Another program is using your Quest"**
-1. Click "Disconnect" and wait 2-3 seconds
-2. Try refreshing the page (F5) to clear browser state
-3. Close these programs if running:
-   - SideQuest
-   - Meta Quest Developer Hub
-   - Any ADB command-line tools
-4. **Windows**: Open Task Manager → End all `adb.exe` processes
-5. Unplug Quest, wait 3 seconds, plug back in
-6. As last resort, reboot your Quest headset
-
-### Platform-Specific Issues
-
-**Android**
-
-*"Device not detected"*
-- Verify phone supports USB OTG (check specifications)
-- Try different USB cable (charge-only cables don't work)
-- Enable "OTG" or "USB Host Mode" in phone settings
-- Close the Meta Quest mobile app
-
-*"Permission denied"*
-- Grant USB permissions when Chrome prompts
-- Check Developer Options are enabled on phone
-- Restart phone if issues persist
-
-**macOS**
-
-*"Cannot claim interface"*
-- Quit Meta Quest Developer Hub
-- Close any terminal windows running ADB
-- Check Activity Monitor for any `adb` processes
-
-*"Connection lost"*
-- Use official USB-C cable or high-quality alternative
-- Avoid adapters if possible
-- Try different USB-C ports
-
-**Linux**
-
-*"Access denied" or permission errors*
-```bash
-# Add your user to plugdev group
-sudo usermod -aG plugdev $USER
-
-# Install Android udev rules
-sudo wget -O /etc/udev/rules.d/51-android.rules \
-  https://raw.githubusercontent.com/M0Rf30/android-udev-rules/main/51-android.rules
-sudo chmod a+r /etc/udev/rules.d/51-android.rules
-sudo udevadm control --reload-rules
-
-# Log out and back in for changes to take effect
-```
-
-**Windows**
-
-*Build/compilation errors during setup*
-- Use Node.js 20 LTS (download from https://nodejs.org/)
-- Avoid Node.js 21, 22, 24+ which have compilation issues
-- Alternatively, use Docker deployment to avoid local compilation
-- Ensure Windows Build Tools are installed (npm install --global windows-build-tools)
-
-### During Configuration
-
-**"Connection lost" while executing commands**
-- Check USB cable is firmly connected
-- Use a higher quality USB cable
-- Avoid moving the cable during execution
-- Connect directly to computer (not through hub)
-
-**Commands fail or have no effect**
-- Verify Quest is still connected (check status)
-- Some commands require specific firmware versions
-- Check Admin Panel execution logs for error details
-- Reboot Quest if settings seem stuck
-
-### Getting More Help
-
-1. Check the **Error Help** cards in the app - they provide specific troubleshooting steps
-2. Click "Technical Details" in error messages for more information
-3. Review the [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) for platform-specific guidance
-4. Open browser console (F12) for detailed error logs
-5. Check the Admin Panel for execution history and error patterns
+### Node.js Installation Issues (Windows)
+If `better-sqlite3` fails to compile:
+1. **Use Node.js 20 LTS** (not 21, 22, 24+) - Download from https://nodejs.org/
+2. Install "Desktop development with C++" workload in Visual Studio 2022
+3. Or use the Docker deployment method which avoids local compilation
 
 ## Security Considerations
 
@@ -471,53 +262,19 @@ The architecture supports adding authentication:
 ### Project Structure
 ```
 questnav-browser-config-tool/
-├── frontend/              # React + Vite frontend
+├── frontend/           # React + Vite frontend
 │   ├── src/
-│   │   ├── components/    # React components
-│   │   │   ├── AdminPanel.tsx
-│   │   │   ├── AuthenticationStatus.tsx  # USB debugging auth display
-│   │   │   ├── ConfigurationPanel.tsx
-│   │   │   ├── ConnectionStatus.tsx
-│   │   │   ├── ErrorHelp.tsx             # Contextual error help
-│   │   │   └── ProgressDisplay.tsx
-│   │   ├── services/      # API and ADB services
-│   │   │   ├── adbService.ts             # WebUSB/ADB integration
-│   │   │   └── apiService.ts             # Backend API client
-│   │   ├── assets/        # Static assets
-│   │   │   └── quest-usb-debug-dialog.png  # Reference image
-│   │   ├── types.ts       # TypeScript type definitions
-│   │   └── index.css      # Global styles with responsive design
-│   └── dist/              # Build output (generated)
-├── backend/               # Node.js + Express backend
+│   │   ├── components/ # React components
+│   │   ├── services/   # API and ADB services
+│   │   └── types.ts    # TypeScript types
+├── backend/            # Node.js + Express backend
 │   ├── src/
-│   │   ├── routes/        # API routes
-│   │   │   ├── admin.ts   # Admin endpoints
-│   │   │   ├── profiles.ts  # Profile endpoints
-│   │   │   └── logs.ts    # Logging endpoints
-│   │   ├── services/      # Business logic
-│   │   │   └── database.ts  # SQLite operations
-│   │   ├── models/        # Type definitions
-│   │   │   └── types.ts
-│   │   └── server.ts      # Express app setup
-│   └── data/              # SQLite database storage
-│       └── questnav.db    # Application database
-├── docker/                # Docker configuration
-│   └── nginx.conf         # Nginx reverse proxy config
-├── docker-compose.yml     # Container orchestration
-├── Dockerfile             # Multi-stage Docker build
-├── setup.bat              # Windows setup script
-├── setup.sh               # Unix setup script
-├── start-dev.ps1          # Windows dev server launcher
-└── start-dev.sh           # Unix dev server launcher
+│   │   ├── routes/     # API routes
+│   │   ├── services/   # Database service
+│   │   └── models/     # Type definitions
+├── docker/             # Docker configuration
+└── docker-compose.yml  # Container orchestration
 ```
-
-### Key Files
-
-- **`frontend/src/services/adbService.ts`**: WebUSB/ADB integration with error handling
-- **`frontend/src/components/ErrorHelp.tsx`**: Structured error messages with troubleshooting
-- **`frontend/src/components/AuthenticationStatus.tsx`**: Beautiful authentication progress display
-- **`backend/src/services/database.ts`**: SQLite database operations and schema
-- **`.gitignore`**: Excludes `node_modules/`, `dist/`, `*.db`, and build artifacts
 
 ### Building for Production
 
@@ -541,59 +298,18 @@ npm run build
 cd backend
 npm run typecheck
 
-# Frontend  
+# Frontend
 cd frontend
 npm run typecheck
 ```
 
-### Code Quality
-
-The codebase follows these principles:
-- **TypeScript Strict Mode**: Full type safety across frontend and backend
-- **No Dead Code**: Regular cleanup of unused imports, functions, and files
-- **Separation of Concerns**: Clear boundaries between UI, business logic, and data
-- **Error Handling**: Structured error messages with user-friendly troubleshooting
-- **Responsive Design**: Mobile-first CSS with breakpoints for all screen sizes
-- **Accessibility**: Proper ARIA labels, alt text, and keyboard navigation
-
-### Recent Improvements
-
-- ✅ **Structured Error Handling**: All errors use consistent format with icons, descriptions, and troubleshooting steps
-- ✅ **Authentication Status Display**: Visual countdown timer and reference image during Quest authentication
-- ✅ **Device Validation**: Automatic detection of Quest 2/3 with friendly warnings for incompatible devices
-- ✅ **Responsive Images**: USB debugging dialog image scales automatically across devices
-- ✅ **Clean Architecture**: Removed dead code, consolidated dependencies, optimized build output
-- ✅ **Improved UX**: Cancel connection feature, better loading states, clearer progress indicators
-
 ## Contributing
 
-We welcome contributions! Please follow these guidelines:
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Follow the existing code style**:
-   - Use TypeScript strict mode
-   - Add proper type definitions
-   - Include error handling
-   - Write clear, descriptive commit messages
-4. **Test thoroughly**:
-   - Test on multiple platforms if possible
-   - Verify error scenarios
-   - Check responsive design
-5. **Update documentation** if needed
-6. **Submit a pull request**
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-## Documentation
-
-- **[README.md](README.md)** - This file: Overview and setup
-- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for getting started
-- **[PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md)** - Detailed platform compatibility information
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide with HTTPS setup
-- **[SECURITY.md](SECURITY.md)** - Security considerations and best practices
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
-- **[frontend/src/assets/IMAGE_GUIDE.md](frontend/src/assets/IMAGE_GUIDE.md)** - Guide for adding USB debugging dialog image
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## References
 
