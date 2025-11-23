@@ -3,16 +3,27 @@ import ConnectionStatus from './components/ConnectionStatus';
 import ConfigurationPanel from './components/ConfigurationPanel';
 import ProgressDisplay from './components/ProgressDisplay';
 import AdminPanel from './components/AdminPanel';
+import ErrorHelp from './components/ErrorHelp';
+import AuthenticationStatus from './components/AuthenticationStatus';
 import { adbService } from './services/adbService';
 import { api } from './services/apiService';
 import { ConnectionState, ExecutionProgress, ConfigProfile } from './types';
 import './index.css';
+
+interface ConnectionStatusInfo {
+  stage: 'selecting' | 'connecting' | 'authenticating';
+  message: string;
+  timeRemaining?: number;
+}
 
 function App() {
   const [view, setView] = useState<'user' | 'admin'>('user');
   const [connectionState, setConnectionState] = useState<ConnectionState>({
     connected: false
   });
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [connectionStatusInfo, setConnectionStatusInfo] = useState<ConnectionStatusInfo | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [progress, setProgress] = useState<ExecutionProgress>({
     total: 0,
     completed: 0,
@@ -25,21 +36,54 @@ function App() {
 
   const handleConnect = async () => {
     setProgress({ ...progress, status: 'idle', error: undefined });
-    const result = await adbService.connect();
+    setConnectionError(null);
+    setConnectionStatusInfo(null);
+    setIsConnecting(true);
+    
+    // Use the status callback to show connection progress
+    const result = await adbService.connect((status) => {
+      // Show status messages during connection
+      if (status.stage === 'authenticating' || status.stage === 'connecting' || status.stage === 'selecting') {
+        setConnectionStatusInfo({
+          stage: status.stage,
+          message: status.message,
+          timeRemaining: status.timeRemaining
+        });
+        setConnectionError(null); // Clear any previous errors
+      } else if (status.stage === 'error') {
+        setConnectionStatusInfo(null);
+        setConnectionError(status.message);
+      }
+    });
+    
+    setIsConnecting(false);
     
     if (result.success && result.device) {
       setConnectionState({
         connected: true,
         device: result.device
       });
+      setConnectionError(null);
+      setConnectionStatusInfo(null);
     } else {
-      alert(`Connection failed: ${result.error}`);
+      setConnectionError(result.error || 'Failed to connect');
+      setConnectionStatusInfo(null);
     }
+  };
+
+  const handleCancelConnection = () => {
+    console.log('User requested connection cancellation');
+    adbService.cancelConnection();
+    setIsConnecting(false);
+    setConnectionStatusInfo(null);
+    setConnectionError('Connection cancelled by user.');
   };
 
   const handleDisconnect = async () => {
     await adbService.disconnect();
     setConnectionState({ connected: false });
+    setConnectionError(null);
+    setConnectionStatusInfo(null);
     setProgress({
       total: 0,
       completed: 0,
@@ -71,7 +115,7 @@ function App() {
       
       const results = await adbService.executeCommands(
         commands,
-        (current, total, command) => {
+        (current, total) => {
           const currentCommand = profile.commands[current];
           setProgress({
             total,
@@ -156,7 +200,7 @@ function App() {
   if (!isWebUsbSupported) {
     return (
       <div>
-        <h1>Quest Configuration Tool</h1>
+        <h1>QuestNav Configuration Tool</h1>
         <div className="card" style={{ backgroundColor: '#ef4444', color: 'white' }}>
           <h2>WebUSB Not Supported</h2>
           <p>
@@ -166,7 +210,7 @@ function App() {
             Please use a Chromium-based browser such as:
           </p>
           <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-            <li>Google Chrome</li>
+            <li>Google Chrome (version 112 or later)</li>
             <li>Microsoft Edge</li>
             <li>Brave</li>
             <li>Opera</li>
@@ -179,7 +223,7 @@ function App() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>Quest Configuration Tool</h1>
+        <h1>QuestNav Configuration Tool</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             onClick={() => setView('user')}
@@ -211,7 +255,26 @@ function App() {
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
             disabled={isExecuting}
+            isConnecting={isConnecting}
+            onCancelConnection={handleCancelConnection}
           />
+
+          {connectionStatusInfo && (
+            <AuthenticationStatus
+              stage={connectionStatusInfo.stage}
+              message={connectionStatusInfo.message}
+              timeRemaining={connectionStatusInfo.timeRemaining}
+              onCancel={handleCancelConnection}
+            />
+          )}
+
+          {connectionError && (
+            <ErrorHelp 
+              error={connectionError}
+              onRetry={handleConnect}
+              onDismiss={() => setConnectionError(null)}
+            />
+          )}
 
           {connectionState.connected && (
             <>
@@ -230,10 +293,27 @@ function App() {
             <div className="card">
               <h2>Welcome!</h2>
               <p>This tool allows you to quickly configure your Meta Quest headset with optimized settings.</p>
+              
+              <div style={{ 
+                marginTop: '1.5rem', 
+                padding: '1rem', 
+                backgroundColor: '#3b82f620', 
+                borderLeft: '4px solid #3b82f6',
+                borderRadius: '4px' 
+              }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: '#3b82f6' }}>
+                  📱 Using from Android Phone?
+                </h3>
+                <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
+                  Perfect! Connect your Quest to your phone using a USB-C cable. 
+                  Most modern Android phones support USB OTG and work great with this tool.
+                </p>
+              </div>
+
               <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>Before you begin:</h3>
               <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8 }}>
                 <li>Enable Developer Mode on your Quest headset</li>
-                <li>Connect your Quest to this computer via USB cable</li>
+                <li>Connect your Quest via USB cable (to phone, Mac, or Linux PC)</li>
                 <li>Click "Connect Quest" button above</li>
                 <li>Allow USB debugging when prompted on your headset</li>
                 <li>Select a configuration profile and click "Apply Configuration"</li>

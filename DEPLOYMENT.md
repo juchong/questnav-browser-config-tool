@@ -1,6 +1,6 @@
-# Quest Configuration Tool - Deployment Guide
+# QuestNav Configuration Tool - Deployment Guide
 
-This guide covers deploying the Quest Configuration Tool in production environments.
+This guide covers deploying the QuestNav Configuration Tool in production environments.
 
 ## Prerequisites
 
