@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Quest Navigation Browser Configuration Tool - Setup Script
+# QuestNav Browser Configuration Tool - Setup Script
 # This script sets up the development environment
 
 echo "================================================"
