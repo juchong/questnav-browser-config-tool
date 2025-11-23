@@ -13,9 +13,14 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - DATABASE_PATH=/app/data/questnav.db
-      - CORS_ORIGIN=http://localhost:3000
-      - RATE_LIMIT_WINDOW_MS=900000
-      - RATE_LIMIT_MAX_REQUESTS=100
+      - APK_STORAGE_DIR=/app/data/apks
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+      # Admin credentials - CHANGE THESE IN PRODUCTION!
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - JWT_SECRET=${JWT_SECRET:-changeme}
     volumes:
       - questnav-data:/app/data
     healthcheck:
