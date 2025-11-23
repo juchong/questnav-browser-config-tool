@@ -72,6 +72,62 @@ function initializeDatabase() {
     console.error('Error during database migration:', error);
   }
 
+  // Migrate execution_logs table: add enhanced logging columns if they don't exist
+  try {
+    const logsTableInfo = db.prepare("PRAGMA table_info(execution_logs)").all() as any[];
+    const existingColumns = new Set(logsTableInfo.map((col: any) => col.name));
+    
+    const newColumns = [
+      { name: 'client_ip', type: 'TEXT' },
+      { name: 'user_agent', type: 'TEXT' },
+      { name: 'device_serial', type: 'TEXT' },
+      { name: 'device_name', type: 'TEXT' },
+      { name: 'connection_timestamp', type: 'DATETIME' },
+      { name: 'execution_start_timestamp', type: 'DATETIME' },
+      { name: 'execution_end_timestamp', type: 'DATETIME' },
+      { name: 'execution_duration_ms', type: 'INTEGER' },
+      { name: 'command_results', type: 'TEXT' }, // JSON storage
+      { name: 'total_commands', type: 'INTEGER' },
+      { name: 'successful_commands', type: 'INTEGER' },
+      { name: 'failed_commands', type: 'INTEGER' },
+      // Browser information
+      { name: 'browser_name', type: 'TEXT' },
+      { name: 'browser_version', type: 'TEXT' },
+      { name: 'browser_engine', type: 'TEXT' },
+      { name: 'os_name', type: 'TEXT' },
+      { name: 'os_version', type: 'TEXT' },
+      { name: 'platform', type: 'TEXT' },
+      { name: 'screen_resolution', type: 'TEXT' },
+      { name: 'viewport_size', type: 'TEXT' },
+      { name: 'timezone', type: 'TEXT' },
+      { name: 'language', type: 'TEXT' },
+      { name: 'webusb_supported', type: 'INTEGER' },
+      { name: 'browser_fingerprint', type: 'TEXT' }
+    ];
+
+    let migrationNeeded = false;
+    for (const col of newColumns) {
+      if (!existingColumns.has(col.name)) {
+        migrationNeeded = true;
+        break;
+      }
+    }
+
+    if (migrationNeeded) {
+      console.log('Migrating execution_logs table: adding enhanced logging columns...');
+      for (const col of newColumns) {
+        if (!existingColumns.has(col.name)) {
+          const sql = `ALTER TABLE execution_logs ADD COLUMN ${col.name} ${col.type}`;
+          console.log(`  - Adding column: ${col.name}`);
+          db.exec(sql);
+        }
+      }
+      console.log('Enhanced logging columns added successfully');
+    }
+  } catch (error) {
+    console.error('Error during execution_logs migration:', error);
+  }
+
   // Insert default profile if none exist
   const count = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
   if (count.count === 0) {
@@ -172,12 +228,23 @@ export const profileDb = {
     }));
   },
 
+  // Get visible profiles with only visible commands (for users)
+  getVisible(): ConfigProfile[] {
+    const rows = db.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all() as any[];
+    return rows.map(row => ({
+      ...row,
+      commands: JSON.parse(row.commands).filter((cmd: any) => !cmd.is_hidden),
+      is_active: Boolean(row.is_active)
+    }));
+  },
+
   getActive(): ConfigProfile | undefined {
     const row = db.prepare('SELECT * FROM profiles WHERE is_active = 1 LIMIT 1').get() as any;
     if (!row) return undefined;
+    // Filter out hidden commands for user-facing active profile
     return {
       ...row,
-      commands: JSON.parse(row.commands),
+      commands: JSON.parse(row.commands).filter((cmd: any) => !cmd.is_hidden),
       is_active: true
     };
   },
@@ -194,7 +261,12 @@ export const profileDb = {
 
   create(profile: ConfigProfile): ConfigProfile {
     const stmt = db.prepare('INSERT INTO profiles (name, description, commands, is_active) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(profile.name, profile.description, JSON.stringify(profile.commands), 0);
+    const result = stmt.run(
+      profile.name, 
+      profile.description, 
+      JSON.stringify(profile.commands), 
+      0
+    );
     return this.getById(result.lastInsertRowid as number)!;
   },
 
@@ -258,21 +330,226 @@ export const profileDb = {
 // Execution log operations
 export const logDb = {
   create(log: ExecutionLog): ExecutionLog {
-    const stmt = db.prepare('INSERT INTO execution_logs (profile_id, status, error_message) VALUES (?, ?, ?)');
-    const result = stmt.run(log.profile_id, log.status, log.error_message || null);
-    return {
-      id: result.lastInsertRowid as number,
-      ...log
-    };
+    // Build dynamic SQL based on provided fields
+    const fields: string[] = ['profile_id', 'status'];
+    const placeholders: string[] = ['?', '?'];
+    const values: any[] = [log.profile_id, log.status];
+
+    // Add optional fields if provided
+    if (log.error_message !== undefined) {
+      fields.push('error_message');
+      placeholders.push('?');
+      values.push(log.error_message);
+    }
+    if (log.client_ip !== undefined) {
+      fields.push('client_ip');
+      placeholders.push('?');
+      values.push(log.client_ip);
+    }
+    if (log.user_agent !== undefined) {
+      fields.push('user_agent');
+      placeholders.push('?');
+      values.push(log.user_agent);
+    }
+    if (log.device_serial !== undefined) {
+      fields.push('device_serial');
+      placeholders.push('?');
+      values.push(log.device_serial);
+    }
+    if (log.device_name !== undefined) {
+      fields.push('device_name');
+      placeholders.push('?');
+      values.push(log.device_name);
+    }
+    if (log.connection_timestamp !== undefined) {
+      fields.push('connection_timestamp');
+      placeholders.push('?');
+      values.push(log.connection_timestamp);
+    }
+    if (log.execution_start_timestamp !== undefined) {
+      fields.push('execution_start_timestamp');
+      placeholders.push('?');
+      values.push(log.execution_start_timestamp);
+    }
+    if (log.execution_end_timestamp !== undefined) {
+      fields.push('execution_end_timestamp');
+      placeholders.push('?');
+      values.push(log.execution_end_timestamp);
+    }
+    if (log.execution_duration_ms !== undefined) {
+      fields.push('execution_duration_ms');
+      placeholders.push('?');
+      values.push(log.execution_duration_ms);
+    }
+    if (log.command_results !== undefined) {
+      fields.push('command_results');
+      placeholders.push('?');
+      values.push(JSON.stringify(log.command_results));
+    }
+    if (log.total_commands !== undefined) {
+      fields.push('total_commands');
+      placeholders.push('?');
+      values.push(log.total_commands);
+    }
+    if (log.successful_commands !== undefined) {
+      fields.push('successful_commands');
+      placeholders.push('?');
+      values.push(log.successful_commands);
+    }
+    if (log.failed_commands !== undefined) {
+      fields.push('failed_commands');
+      placeholders.push('?');
+      values.push(log.failed_commands);
+    }
+    // Browser information fields
+    if (log.browser_name !== undefined) {
+      fields.push('browser_name');
+      placeholders.push('?');
+      values.push(log.browser_name);
+    }
+    if (log.browser_version !== undefined) {
+      fields.push('browser_version');
+      placeholders.push('?');
+      values.push(log.browser_version);
+    }
+    if (log.browser_engine !== undefined) {
+      fields.push('browser_engine');
+      placeholders.push('?');
+      values.push(log.browser_engine);
+    }
+    if (log.os_name !== undefined) {
+      fields.push('os_name');
+      placeholders.push('?');
+      values.push(log.os_name);
+    }
+    if (log.os_version !== undefined) {
+      fields.push('os_version');
+      placeholders.push('?');
+      values.push(log.os_version);
+    }
+    if (log.platform !== undefined) {
+      fields.push('platform');
+      placeholders.push('?');
+      values.push(log.platform);
+    }
+    if (log.screen_resolution !== undefined) {
+      fields.push('screen_resolution');
+      placeholders.push('?');
+      values.push(log.screen_resolution);
+    }
+    if (log.viewport_size !== undefined) {
+      fields.push('viewport_size');
+      placeholders.push('?');
+      values.push(log.viewport_size);
+    }
+    if (log.timezone !== undefined) {
+      fields.push('timezone');
+      placeholders.push('?');
+      values.push(log.timezone);
+    }
+    if (log.language !== undefined) {
+      fields.push('language');
+      placeholders.push('?');
+      values.push(log.language);
+    }
+    if (log.webusb_supported !== undefined) {
+      fields.push('webusb_supported');
+      placeholders.push('?');
+      values.push(log.webusb_supported ? 1 : 0);
+    }
+    if (log.browser_fingerprint !== undefined) {
+      fields.push('browser_fingerprint');
+      placeholders.push('?');
+      values.push(log.browser_fingerprint);
+    }
+
+    const sql = `INSERT INTO execution_logs (${fields.join(', ')}) VALUES (${placeholders.join(', ')})`;
+    const stmt = db.prepare(sql);
+    const result = stmt.run(...values);
+    
+    return this.getById(result.lastInsertRowid as number)!;
+  },
+
+  getById(id: number): ExecutionLog | undefined {
+    const row = db.prepare('SELECT * FROM execution_logs WHERE id = ?').get(id) as any;
+    if (!row) return undefined;
+    
+    // Parse command_results JSON if present
+    if (row.command_results) {
+      try {
+        row.command_results = JSON.parse(row.command_results);
+      } catch (e) {
+        console.error('Failed to parse command_results JSON:', e);
+        row.command_results = null;
+      }
+    }
+    
+    return row;
   },
 
   getAll(limit: number = 100): ExecutionLog[] {
-    return db.prepare('SELECT * FROM execution_logs ORDER BY executed_at DESC LIMIT ?').all(limit) as ExecutionLog[];
+    const rows = db.prepare('SELECT * FROM execution_logs ORDER BY executed_at DESC LIMIT ?').all(limit) as any[];
+    return rows.map(row => {
+      // Parse command_results JSON if present
+      if (row.command_results) {
+        try {
+          row.command_results = JSON.parse(row.command_results);
+        } catch (e) {
+          console.error('Failed to parse command_results JSON:', e);
+          row.command_results = null;
+        }
+      }
+      return row;
+    });
   },
 
   getByProfileId(profileId: number, limit: number = 50): ExecutionLog[] {
-    return db.prepare('SELECT * FROM execution_logs WHERE profile_id = ? ORDER BY executed_at DESC LIMIT ?')
-      .all(profileId, limit) as ExecutionLog[];
+    const rows = db.prepare('SELECT * FROM execution_logs WHERE profile_id = ? ORDER BY executed_at DESC LIMIT ?')
+      .all(profileId, limit) as any[];
+    return rows.map(row => {
+      // Parse command_results JSON if present
+      if (row.command_results) {
+        try {
+          row.command_results = JSON.parse(row.command_results);
+        } catch (e) {
+          console.error('Failed to parse command_results JSON:', e);
+          row.command_results = null;
+        }
+      }
+      return row;
+    });
+  },
+
+  getByDeviceSerial(deviceSerial: string, limit: number = 50): ExecutionLog[] {
+    const rows = db.prepare('SELECT * FROM execution_logs WHERE device_serial = ? ORDER BY executed_at DESC LIMIT ?')
+      .all(deviceSerial, limit) as any[];
+    return rows.map(row => {
+      // Parse command_results JSON if present
+      if (row.command_results) {
+        try {
+          row.command_results = JSON.parse(row.command_results);
+        } catch (e) {
+          console.error('Failed to parse command_results JSON:', e);
+          row.command_results = null;
+        }
+      }
+      return row;
+    });
+  },
+
+  getUniqueDevices(): Array<{ device_serial: string; device_name: string; last_connection: string; execution_count: number }> {
+    const sql = `
+      SELECT 
+        device_serial,
+        device_name,
+        MAX(executed_at) as last_connection,
+        COUNT(*) as execution_count
+      FROM execution_logs
+      WHERE device_serial IS NOT NULL
+      GROUP BY device_serial
+      ORDER BY last_connection DESC
+    `;
+    return db.prepare(sql).all() as any[];
   },
 
   getStats() {

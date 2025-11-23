@@ -9,7 +9,9 @@ import Login from './components/Login';
 import { adbService } from './services/adbService';
 import { api } from './services/apiService';
 import { authService } from './services/authService';
-import { ConnectionState, ExecutionProgress, ConfigProfile } from './types';
+import { githubService } from './services/githubService';
+import { ConnectionState, ExecutionProgress, ConfigProfile, CommandExecutionResult, AdbCommand } from './types';
+import { collectBrowserInfo } from './utils/browserInfo';
 import './index.css';
 
 interface ConnectionStatusInfo {
@@ -25,6 +27,7 @@ function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>({
     connected: false
   });
+  const [connectionTimestamp, setConnectionTimestamp] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [connectionStatusInfo, setConnectionStatusInfo] = useState<ConnectionStatusInfo | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -34,6 +37,9 @@ function App() {
     status: 'idle'
   });
   const [isExecuting, setIsExecuting] = useState(false);
+  
+  // Collect browser info once on mount
+  const [browserInfo] = useState(() => collectBrowserInfo());
 
   // Check authentication status on mount and when switching to admin view
   useEffect(() => {
@@ -89,6 +95,7 @@ function App() {
         connected: true,
         device: result.device
       });
+      setConnectionTimestamp(new Date().toISOString());
       setConnectionError(null);
       setConnectionStatusInfo(null);
     } else {
@@ -108,6 +115,7 @@ function App() {
   const handleDisconnect = async () => {
     await adbService.disconnect();
     setConnectionState({ connected: false });
+    setConnectionTimestamp(null);
     setConnectionError(null);
     setConnectionStatusInfo(null);
     setProgress({
@@ -117,92 +125,218 @@ function App() {
     });
   };
 
-  const handleApplyConfiguration = async (profile: ConfigProfile) => {
+  const handleApplyConfiguration = async (profile: ConfigProfile, installQuestNav: boolean = false) => {
     if (!connectionState.connected) {
       alert('Please connect to your Quest device first.');
       return;
     }
 
-    if (!profile.commands || profile.commands.length === 0) {
+    // Build the full command list including optional QuestNav APK
+    let allCommands: AdbCommand[] = [...profile.commands];
+    
+    // If user opted in for QuestNav, add it at the beginning (unless admin already added it)
+    if (installQuestNav) {
+      const hasQuestNavInstall = profile.commands.some(cmd => cmd.category === 'app_install');
+      if (!hasQuestNavInstall) {
+        // Fetch latest QuestNav APK info
+        const apkInfo = await githubService.getLatestApkUrl();
+        if (apkInfo) {
+          // Request backend to cache the APK and get hash
+          try {
+            const cacheResponse = await fetch('/api/apks/cache', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                apk_url: apkInfo.url,
+                apk_name: apkInfo.name
+              })
+            });
+            
+            const cacheData = await cacheResponse.json();
+            
+            if (cacheData.success && cacheData.data.hash) {
+              // Insert QuestNav installation at the start with hash
+              allCommands.unshift({
+                command: 'install_apk',
+                description: `Install ${apkInfo.name} (${apkInfo.version})`,
+                category: 'app_install',
+                apk_url: apkInfo.url,
+                apk_name: apkInfo.name,
+                apk_hash: cacheData.data.hash
+              });
+            } else {
+              console.error('Failed to cache APK:', cacheData.error);
+              alert(`Failed to prepare QuestNav APK: ${cacheData.error}`);
+              return;
+            }
+          } catch (error) {
+            console.error('Failed to cache APK:', error);
+            alert('Failed to prepare QuestNav APK. Please try again.');
+            return;
+          }
+        }
+      }
+    }
+
+    if (allCommands.length === 0) {
       alert('This profile has no commands to execute.');
       return;
     }
 
     setIsExecuting(true);
     setProgress({
-      total: profile.commands.length,
+      total: allCommands.length,
       completed: 0,
       status: 'running',
-      current: profile.commands[0].description
+      current: allCommands[0].description
     });
 
+    const executionStartTime = new Date().toISOString();
+    const detailedResults: CommandExecutionResult[] = [];
+
     try {
-      const commands = profile.commands.map(cmd => cmd.command);
-      
-      const results = await adbService.executeCommands(
-        commands,
-        (current, total) => {
-          const currentCommand = profile.commands[current];
-          setProgress({
-            total,
-            completed: current,
-            status: 'running',
-            current: currentCommand?.description || ''
-          });
+      // Execute commands sequentially, handling app_install specially
+      let currentIndex = 0;
+      for (const cmd of allCommands) {
+        setProgress({
+          total: allCommands.length,
+          completed: currentIndex,
+          status: 'running',
+          current: cmd.description
+        });
+
+        let result;
+        
+        if (cmd.category === 'app_install' && cmd.apk_hash && cmd.apk_name) {
+          // Handle APK installation using cached hash
+          result = await adbService.installApk(
+            cmd.apk_hash,
+            cmd.apk_name,
+            (stage, _progress) => {
+              setProgress({
+                total: allCommands.length,
+                completed: currentIndex,
+                status: 'running',
+                current: `${cmd.description} - ${stage}`
+              });
+            }
+          );
+          console.log('APK install result for logging:', result);
+        } else {
+          // Regular command execution
+          result = await adbService.executeCommand(cmd.command);
         }
-      );
+
+        detailedResults.push({
+          command: cmd.command,
+          description: cmd.description,
+          category: cmd.category,
+          success: result.success,
+          output: result.output,
+          error: result.error,
+          timestamp: result.timestamp || new Date().toISOString(),
+          duration_ms: result.duration_ms || 0
+        });
+        
+        console.log(`Command ${currentIndex + 1}/${allCommands.length} result:`, {
+          description: cmd.description,
+          success: result.success,
+          output: result.output?.substring(0, 100),
+          error: result.error?.substring(0, 100)
+        });
+
+        currentIndex++;
+        
+        // Small delay between commands
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      const executionEndTime = new Date().toISOString();
 
       // Check if any commands failed
-      const failures = results.filter(r => !r.success);
+      const failures = detailedResults.filter(r => !r.success);
+      const successCount = detailedResults.filter(r => r.success).length;
       
       if (failures.length === 0) {
         setProgress({
-          total: profile.commands.length,
-          completed: profile.commands.length,
+          total: allCommands.length,
+          completed: allCommands.length,
           status: 'success'
         });
         
-        // Log success
+        // Log success with full details
         if (profile.id) {
           await api.logExecution({
             profile_id: profile.id,
-            status: 'success'
+            status: 'success',
+            device_serial: connectionState.device?.serial,
+            device_name: connectionState.device?.name,
+            connection_timestamp: connectionTimestamp || undefined,
+            execution_start_timestamp: executionStartTime,
+            execution_end_timestamp: executionEndTime,
+            command_results: detailedResults,
+            total_commands: allCommands.length,
+            successful_commands: successCount,
+            failed_commands: 0,
+            ...browserInfo
           });
         }
-      } else if (failures.length === results.length) {
+      } else if (failures.length === allCommands.length) {
         setProgress({
-          total: profile.commands.length,
+          total: allCommands.length,
           completed: 0,
           status: 'error',
           error: failures[0].error || 'All commands failed'
         });
         
-        // Log failure
+        // Log failure with full details
         if (profile.id) {
           await api.logExecution({
             profile_id: profile.id,
             status: 'failure',
-            error_message: failures[0].error
+            error_message: failures[0].error,
+            device_serial: connectionState.device?.serial,
+            device_name: connectionState.device?.name,
+            connection_timestamp: connectionTimestamp || undefined,
+            execution_start_timestamp: executionStartTime,
+            execution_end_timestamp: executionEndTime,
+            command_results: detailedResults,
+            total_commands: allCommands.length,
+            successful_commands: 0,
+            failed_commands: failures.length,
+            ...browserInfo
           });
         }
       } else {
         setProgress({
-          total: profile.commands.length,
-          completed: results.filter(r => r.success).length,
+          total: allCommands.length,
+          completed: detailedResults.filter(r => r.success).length,
           status: 'error',
           error: `${failures.length} commands failed`
         });
         
-        // Log partial success
+        // Log partial success with full details
         if (profile.id) {
           await api.logExecution({
             profile_id: profile.id,
             status: 'partial',
-            error_message: `${failures.length} commands failed`
+            error_message: `${failures.length} commands failed`,
+            device_serial: connectionState.device?.serial,
+            device_name: connectionState.device?.name,
+            connection_timestamp: connectionTimestamp || undefined,
+            execution_start_timestamp: executionStartTime,
+            execution_end_timestamp: executionEndTime,
+            command_results: detailedResults,
+            total_commands: allCommands.length,
+            successful_commands: successCount,
+            failed_commands: failures.length,
+            ...browserInfo
           });
         }
       }
     } catch (error) {
+      const executionEndTime = new Date().toISOString();
+      
       setProgress({
         total: profile.commands.length,
         completed: 0,
@@ -210,12 +344,22 @@ function App() {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       
-      // Log error
+      // Log error with whatever details we have
       if (profile.id) {
         await api.logExecution({
           profile_id: profile.id,
           status: 'failure',
-          error_message: error instanceof Error ? error.message : 'Unknown error'
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          device_serial: connectionState.device?.serial,
+          device_name: connectionState.device?.name,
+          connection_timestamp: connectionTimestamp || undefined,
+          execution_start_timestamp: executionStartTime,
+          execution_end_timestamp: executionEndTime,
+          command_results: detailedResults.length > 0 ? detailedResults : undefined,
+          total_commands: profile.commands.length,
+          successful_commands: detailedResults.filter(r => r.success).length,
+          failed_commands: detailedResults.filter(r => !r.success).length,
+          ...browserInfo
         });
       }
     } finally {

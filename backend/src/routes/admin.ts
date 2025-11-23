@@ -1,5 +1,6 @@
 import express from 'express';
 import { profileDb } from '../services/database';
+import { downloadAndCacheApk } from '../services/apkService';
 import { requireAuth } from '../middleware/auth';
 import { ConfigProfile, ApiResponse, AdbCommand } from '../models/types';
 
@@ -10,13 +11,33 @@ router.use(requireAuth);
 
 // Validate ADB command structure
 function validateCommand(cmd: any): cmd is AdbCommand {
-  return (
-    typeof cmd === 'object' &&
-    typeof cmd.command === 'string' &&
-    cmd.command.length > 0 &&
-    typeof cmd.description === 'string' &&
-    ['refresh_rate', 'performance', 'display', 'privacy', 'system'].includes(cmd.category)
-  );
+  const validCategories = ['refresh_rate', 'performance', 'display', 'privacy', 'system', 'diagnostic', 'app_install'];
+  
+  if (typeof cmd !== 'object' || 
+      typeof cmd.command !== 'string' || 
+      cmd.command.length === 0 ||
+      typeof cmd.description !== 'string' ||
+      !validCategories.includes(cmd.category)) {
+    return false;
+  }
+
+  // Additional validation for app_install category
+  if (cmd.category === 'app_install') {
+    if (!cmd.apk_url || typeof cmd.apk_url !== 'string' || cmd.apk_url.length === 0) {
+      return false;
+    }
+    if (!cmd.apk_name || typeof cmd.apk_name !== 'string' || cmd.apk_name.length === 0) {
+      return false;
+    }
+    // Validate URL format
+    try {
+      new URL(cmd.apk_url);
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // Validate profile data
@@ -100,7 +121,7 @@ router.put('/profiles/:id/activate', (req, res) => {
 });
 
 // Create new profile
-router.post('/profiles', (req, res) => {
+router.post('/profiles', async (req, res) => {
   try {
     const validation = validateProfile(req.body);
     if (!validation.valid) {
@@ -111,6 +132,8 @@ router.post('/profiles', (req, res) => {
       return res.status(400).json(response);
     }
 
+    // Note: APKs are NOT downloaded automatically
+    // Admin must manually trigger download via "Download APK" button
     const profile = profileDb.create(req.body as ConfigProfile);
     const response: ApiResponse<ConfigProfile> = {
       success: true,
@@ -127,7 +150,7 @@ router.post('/profiles', (req, res) => {
 });
 
 // Update profile
-router.put('/profiles/:id', (req, res) => {
+router.put('/profiles/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -159,6 +182,8 @@ router.put('/profiles/:id', (req, res) => {
       }
     }
 
+    // Note: APKs are NOT downloaded automatically
+    // Admin must manually trigger download via "Download APK" button
     const profile = profileDb.update(id, req.body);
     const response: ApiResponse<ConfigProfile> = {
       success: true,

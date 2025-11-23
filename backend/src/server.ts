@@ -9,6 +9,7 @@ import profilesRouter from './routes/profiles';
 import adminRouter from './routes/admin';
 import logsRouter from './routes/logs';
 import authRouter from './routes/auth';
+import apksRouter from './routes/apks';
 
 // Load environment variables
 dotenv.config();
@@ -48,6 +49,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/profiles', profilesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/logs', logsRouter);
+app.use('/api/apks', apksRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

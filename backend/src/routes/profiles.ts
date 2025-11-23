@@ -31,6 +31,24 @@ router.get('/', (req, res) => {
   }
 });
 
+// Get count of visible profiles (public endpoint)
+router.get('/count', (req, res) => {
+  try {
+    const visibleProfiles = profileDb.getVisible();
+    const response: ApiResponse = {
+      success: true,
+      data: { count: visibleProfiles.length }
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
 // Get profile by ID (kept for logging purposes, but users will only get active profile)
 router.get('/:id', (req, res) => {
   try {

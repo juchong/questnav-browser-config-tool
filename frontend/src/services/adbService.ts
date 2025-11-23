@@ -51,6 +51,8 @@ export interface AdbCommandResult {
   success: boolean;
   output?: string;
   error?: string;
+  duration_ms?: number;
+  timestamp?: string;
 }
 
 // Initialize ADB manager
@@ -401,30 +403,68 @@ export const adbService = {
       };
     }
 
+    const startTime = Date.now();
+    const timestamp = new Date().toISOString();
+
     try {
       // Use the new shell protocol API
       const shellProtocol = adbDevice.subprocess.shellProtocol;
       if (!shellProtocol) {
         // Fallback to older protocol - returns just the output string
         const output = await adbDevice.subprocess.noneProtocol.spawnWaitText(command);
+        const duration = Date.now() - startTime;
+        
+        // Check for pm install failures in output
+        const hasPmError = output && (output.includes('Failure') || output.includes('Error'));
+        
         return {
-          success: true,
-          output: output || ''
+          success: !hasPmError,
+          output: output || '',
+          error: hasPmError ? output : undefined,
+          duration_ms: duration,
+          timestamp
         };
       }
 
       // Spawn the command and wait for completion
       const result = await shellProtocol.spawnWaitText(command);
+      const duration = Date.now() - startTime;
+      
+      // Log raw result for debugging
+      if (command.includes('pm install')) {
+        console.log('Raw shell result:', { 
+          exitCode: result.exitCode, 
+          stdout: result.stdout, 
+          stderr: result.stderr 
+        });
+      }
+      
+      // Combine stdout and stderr for complete output
+      const output = result.stdout || '';
+      const stderr = result.stderr || '';
+      const combinedOutput = output + (stderr ? '\n' + stderr : '');
+      
+      // For pm install commands, check output for failure messages
+      // pm install often returns exit code 0 even on failure
+      const isPmInstall = command.includes('pm install');
+      const hasPmError = isPmInstall && 
+        (combinedOutput.includes('Failure') || combinedOutput.includes('Error'));
       
       return {
-        success: result.exitCode === 0,
-        output: result.stdout || ''
+        success: result.exitCode === 0 && !hasPmError,
+        output: combinedOutput,
+        error: hasPmError ? combinedOutput : (stderr || undefined),
+        duration_ms: duration,
+        timestamp
       };
     } catch (error) {
       console.error('Command execution error:', error);
+      const duration = Date.now() - startTime;
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to execute command'
+        error: error instanceof Error ? error.message : 'Failed to execute command',
+        duration_ms: duration,
+        timestamp
       };
     }
   },
@@ -450,6 +490,127 @@ export const adbService = {
     }
     
     return results;
+  },
+
+  /**
+   * Install APK from backend-cached file
+   * Downloads APK from backend (no CORS issues), uploads to device, installs, and cleans up
+   */
+  async installApk(apkHash: string, apkName: string, onProgress?: (stage: string, progress: number) => void): Promise<AdbCommandResult> {
+    if (!adbDevice) {
+      return {
+        success: false,
+        error: 'Not connected to device'
+      };
+    }
+
+    const startTime = Date.now();
+    const timestamp = new Date().toISOString();
+    // Use /data/local/tmp/ which has proper SELinux context for package installation
+    const tempPath = `/data/local/tmp/${apkName}`;
+
+    try {
+      // Stage 1: Download APK from backend (no CORS issues!)
+      if (onProgress) onProgress('Downloading APK from server...', 10);
+      
+      const response = await fetch(`/api/apks/${apkHash}`);
+      if (!response.ok) {
+        throw new Error(`Failed to download APK: ${response.statusText}`);
+      }
+
+      if (onProgress) onProgress('APK downloaded', 30);
+
+      // Stage 2: Upload APK to device using ADB sync
+      if (onProgress) onProgress('Uploading to device...', 40);
+
+      const sync = await adbDevice.sync();
+      try {
+        // Get ReadableStream from response body
+        // Tango ADB requires a ReadableStream for file upload
+        if (!response.body) {
+          throw new Error('Response body is null');
+        }
+        
+        console.log(`Starting upload to ${tempPath}`);
+        
+        // Write file to device directly from stream
+        await sync.write({
+          filename: tempPath,
+          file: response.body,
+        });
+        
+        console.log('Upload complete');
+        if (onProgress) onProgress('Upload complete', 60);
+      } catch (uploadError) {
+        console.error('Upload failed:', uploadError);
+        throw new Error(`Failed to upload APK to device: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+      } finally {
+        sync.dispose();
+      }
+
+      // Verify file exists on device
+      const verifyResult = await this.executeCommand(`ls -lh "${tempPath}"`);
+      console.log('File verification:', verifyResult);
+      if (!verifyResult.success || !verifyResult.output || verifyResult.output.includes('No such file')) {
+        throw new Error('APK was not uploaded successfully to device');
+      }
+
+      // Stage 3: Install APK using package manager
+      if (onProgress) onProgress('Installing APK...', 70);
+
+      // Use 'cmd package install' which is more reliable for large APKs on newer Android
+      // -r: replace existing app, -t: allow test packages, -g: grant all permissions
+      console.log(`Executing: cmd package install -r -t -g "${tempPath}"`);
+      const installResult = await this.executeCommand(`cmd package install -r -t -g "${tempPath}"`);
+      console.log('PM install result:', JSON.stringify(installResult, null, 2));
+      
+      if (!installResult.success) {
+        const errorMsg = installResult.error || installResult.output || 'Unknown installation error';
+        console.error('PM install failed. Full result:', installResult);
+        throw new Error(`Installation failed: ${errorMsg}`);
+      }
+      
+      console.log('PM install succeeded:', installResult.output);
+
+      if (onProgress) onProgress('Cleaning up...', 90);
+
+      // Stage 4: Clean up temporary file (don't fail if cleanup fails)
+      try {
+        await this.executeCommand(`rm "${tempPath}"`);
+        console.log('Cleanup successful');
+      } catch (cleanupError) {
+        console.warn('Cleanup failed (non-critical):', cleanupError);
+        // Don't fail the installation if cleanup fails
+      }
+
+      if (onProgress) onProgress('Installation complete', 100);
+
+      const duration = Date.now() - startTime;
+      return {
+        success: true,
+        output: `Successfully installed ${apkName}`,
+        duration_ms: duration,
+        timestamp
+      };
+
+    } catch (error) {
+      console.error('APK installation error:', error);
+      
+      // Attempt cleanup on error
+      try {
+        await this.executeCommand(`rm "${tempPath}"`);
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
+      }
+
+      const duration = Date.now() - startTime;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to install APK',
+        duration_ms: duration,
+        timestamp
+      };
+    }
   }
 };
 
