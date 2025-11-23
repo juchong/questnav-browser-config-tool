@@ -231,9 +231,10 @@ export const profileDb = {
   // Get visible profiles with only visible commands (for users)
   getVisible(): ConfigProfile[] {
     const rows = db.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all() as any[];
+    // Return all commands - filtering for display happens in frontend
     return rows.map(row => ({
       ...row,
-      commands: JSON.parse(row.commands).filter((cmd: any) => !cmd.is_hidden),
+      commands: JSON.parse(row.commands),
       is_active: Boolean(row.is_active)
     }));
   },
@@ -241,10 +242,10 @@ export const profileDb = {
   getActive(): ConfigProfile | undefined {
     const row = db.prepare('SELECT * FROM profiles WHERE is_active = 1 LIMIT 1').get() as any;
     if (!row) return undefined;
-    // Filter out hidden commands for user-facing active profile
+    // Return all commands - filtering for display happens in frontend
     return {
       ...row,
-      commands: JSON.parse(row.commands).filter((cmd: any) => !cmd.is_hidden),
+      commands: JSON.parse(row.commands),
       is_active: true
     };
   },

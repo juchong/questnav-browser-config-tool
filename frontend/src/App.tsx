@@ -183,9 +183,13 @@ function App() {
       return;
     }
 
+    // Count visible commands for progress display
+    const visibleCommands = allCommands.filter(cmd => !cmd.is_hidden);
+    const visibleCount = visibleCommands.length;
+
     setIsExecuting(true);
     setProgress({
-      total: allCommands.length,
+      total: visibleCount,
       completed: 0,
       status: 'running',
       current: allCommands[0].description
@@ -197,13 +201,18 @@ function App() {
     try {
       // Execute commands sequentially, handling app_install specially
       let currentIndex = 0;
+      let visibleIndex = 0; // Track only visible commands for progress
+      
       for (const cmd of allCommands) {
-        setProgress({
-          total: allCommands.length,
-          completed: currentIndex,
-          status: 'running',
-          current: cmd.description
-        });
+        // Only update progress for visible commands
+        if (!cmd.is_hidden) {
+          setProgress({
+            total: visibleCount,
+            completed: visibleIndex,
+            status: 'running',
+            current: cmd.description
+          });
+        }
 
         let result;
         
@@ -213,15 +222,18 @@ function App() {
             cmd.apk_hash,
             cmd.apk_name,
             (stage, _progress) => {
-              setProgress({
-                total: allCommands.length,
-                completed: currentIndex,
-                status: 'running',
-                current: `${cmd.description} - ${stage}`
-              });
+              // Only show progress for visible commands
+              if (!cmd.is_hidden) {
+                setProgress({
+                  total: visibleCount,
+                  completed: visibleIndex,
+                  status: 'running',
+                  current: `${cmd.description} - ${stage}`
+                });
+              }
             }
           );
-          console.log('APK install result for logging:', result);
+          // console.log('APK install result for logging:', result);
         } else {
           // Regular command execution
           result = await adbService.executeCommand(cmd.command);
@@ -238,14 +250,18 @@ function App() {
           duration_ms: result.duration_ms || 0
         });
         
-        console.log(`Command ${currentIndex + 1}/${allCommands.length} result:`, {
-          description: cmd.description,
-          success: result.success,
-          output: result.output?.substring(0, 100),
-          error: result.error?.substring(0, 100)
-        });
+        // console.log(`Command ${currentIndex + 1}/${allCommands.length} result:`, {
+        //   description: cmd.description,
+        //   success: result.success,
+        //   output: result.output?.substring(0, 100),
+        //   error: result.error?.substring(0, 100)
+        // });
 
         currentIndex++;
+        // Only increment visible index for non-hidden commands
+        if (!cmd.is_hidden) {
+          visibleIndex++;
+        }
         
         // Small delay between commands
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -259,8 +275,8 @@ function App() {
       
       if (failures.length === 0) {
         setProgress({
-          total: allCommands.length,
-          completed: allCommands.length,
+          total: visibleCount,
+          completed: visibleCount,
           status: 'success'
         });
         
@@ -283,7 +299,7 @@ function App() {
         }
       } else if (failures.length === allCommands.length) {
         setProgress({
-          total: allCommands.length,
+          total: visibleCount,
           completed: 0,
           status: 'error',
           error: failures[0].error || 'All commands failed'
@@ -308,9 +324,14 @@ function App() {
           });
         }
       } else {
+        // Count successful visible commands
+        const successfulVisibleCount = detailedResults.filter((r, i) => 
+          r.success && !allCommands[i].is_hidden
+        ).length;
+        
         setProgress({
-          total: allCommands.length,
-          completed: detailedResults.filter(r => r.success).length,
+          total: visibleCount,
+          completed: successfulVisibleCount,
           status: 'error',
           error: `${failures.length} commands failed`
         });

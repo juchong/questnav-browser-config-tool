@@ -93,16 +93,24 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
           {profile.description}
         </p>
         
-        <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
-          Commands ({profile.commands.length}):
-        </h4>
-        <ul style={{ listStyle: 'none', fontSize: '0.875rem', opacity: 0.9 }}>
-          {profile.commands.map((cmd, idx) => (
-            <li key={idx} style={{ marginBottom: '0.5rem', paddingLeft: '1rem' }}>
-              • {cmd.description}
-            </li>
-          ))}
-        </ul>
+        {/* Filter hidden commands only for display */}
+        {(() => {
+          const visibleCommands = profile.commands.filter(cmd => !cmd.is_hidden);
+          return (
+            <>
+              <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
+                Commands ({visibleCommands.length}):
+              </h4>
+              <ul style={{ listStyle: 'none', fontSize: '0.875rem', opacity: 0.9 }}>
+                {visibleCommands.map((cmd, idx) => (
+                  <li key={idx} style={{ marginBottom: '0.5rem', paddingLeft: '1rem' }}>
+                    • {cmd.description}
+                  </li>
+                ))}
+              </ul>
+            </>
+          );
+        })()}
       </div>
 
       {/* QuestNav APK Installation Toggle */}

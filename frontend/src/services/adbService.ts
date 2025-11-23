@@ -431,13 +431,13 @@ export const adbService = {
       const duration = Date.now() - startTime;
       
       // Log raw result for debugging
-      if (command.includes('pm install')) {
-        console.log('Raw shell result:', { 
-          exitCode: result.exitCode, 
-          stdout: result.stdout, 
-          stderr: result.stderr 
-        });
-      }
+      // if (command.includes('pm install')) {
+      //   console.log('Raw shell result:', { 
+      //     exitCode: result.exitCode, 
+      //     stdout: result.stdout, 
+      //     stderr: result.stderr 
+      //   });
+      // }
       
       // Combine stdout and stderr for complete output
       const output = result.stdout || '';
@@ -531,7 +531,7 @@ export const adbService = {
           throw new Error('Response body is null');
         }
         
-        console.log(`Starting upload to ${tempPath}`);
+        // console.log(`Starting upload to ${tempPath}`);
         
         // Write file to device directly from stream
         await sync.write({
@@ -539,7 +539,7 @@ export const adbService = {
           file: response.body,
         });
         
-        console.log('Upload complete');
+        // console.log('Upload complete');
         if (onProgress) onProgress('Upload complete', 60);
       } catch (uploadError) {
         console.error('Upload failed:', uploadError);
@@ -550,7 +550,7 @@ export const adbService = {
 
       // Verify file exists on device
       const verifyResult = await this.executeCommand(`ls -lh "${tempPath}"`);
-      console.log('File verification:', verifyResult);
+      // console.log('File verification:', verifyResult);
       if (!verifyResult.success || !verifyResult.output || verifyResult.output.includes('No such file')) {
         throw new Error('APK was not uploaded successfully to device');
       }
@@ -560,9 +560,9 @@ export const adbService = {
 
       // Use 'cmd package install' which is more reliable for large APKs on newer Android
       // -r: replace existing app, -t: allow test packages, -g: grant all permissions
-      console.log(`Executing: cmd package install -r -t -g "${tempPath}"`);
+      // console.log(`Executing: cmd package install -r -t -g "${tempPath}"`);
       const installResult = await this.executeCommand(`cmd package install -r -t -g "${tempPath}"`);
-      console.log('PM install result:', JSON.stringify(installResult, null, 2));
+      // console.log('PM install result:', JSON.stringify(installResult, null, 2));
       
       if (!installResult.success) {
         const errorMsg = installResult.error || installResult.output || 'Unknown installation error';
@@ -570,14 +570,14 @@ export const adbService = {
         throw new Error(`Installation failed: ${errorMsg}`);
       }
       
-      console.log('PM install succeeded:', installResult.output);
+      // console.log('PM install succeeded:', installResult.output);
 
       if (onProgress) onProgress('Cleaning up...', 90);
 
       // Stage 4: Clean up temporary file (don't fail if cleanup fails)
       try {
         await this.executeCommand(`rm "${tempPath}"`);
-        console.log('Cleanup successful');
+        // console.log('Cleanup successful');
       } catch (cleanupError) {
         console.warn('Cleanup failed (non-critical):', cleanupError);
         // Don't fail the installation if cleanup fails
