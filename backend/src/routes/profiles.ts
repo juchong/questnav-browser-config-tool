@@ -4,13 +4,22 @@ import { ConfigProfile, ApiResponse } from '../models/types';
 
 const router = express.Router();
 
-// Get all profiles
+// Get active profile (public endpoint for users)
 router.get('/', (req, res) => {
   try {
-    const profiles = profileDb.getAll();
+    const activeProfile = profileDb.getActive();
+    if (!activeProfile) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'No active profile configured'
+      };
+      return res.status(404).json(response);
+    }
+    
+    // Return as array for backward compatibility with frontend
     const response: ApiResponse<ConfigProfile[]> = {
       success: true,
-      data: profiles
+      data: [activeProfile]
     };
     res.json(response);
   } catch (error) {
@@ -22,7 +31,7 @@ router.get('/', (req, res) => {
   }
 });
 
-// Get profile by ID
+// Get profile by ID (kept for logging purposes, but users will only get active profile)
 router.get('/:id', (req, res) => {
   try {
     const id = parseInt(req.params.id);

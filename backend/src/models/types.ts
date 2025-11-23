@@ -9,6 +9,7 @@ export interface ConfigProfile {
   name: string;
   description: string;
   commands: AdbCommand[];
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }

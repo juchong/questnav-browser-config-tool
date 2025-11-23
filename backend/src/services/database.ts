@@ -26,6 +26,7 @@ function initializeDatabase() {
       name TEXT NOT NULL,
       description TEXT,
       commands TEXT NOT NULL,
+      is_active INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -50,6 +51,26 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_logs_profile_id ON execution_logs(profile_id);
     CREATE INDEX IF NOT EXISTS idx_logs_executed_at ON execution_logs(executed_at);
   `);
+
+  // Migrate existing database: add is_active column if it doesn't exist
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(profiles)").all() as any[];
+    const hasIsActive = tableInfo.some(col => col.name === 'is_active');
+    
+    if (!hasIsActive) {
+      console.log('Migrating database: adding is_active column to profiles table...');
+      db.exec('ALTER TABLE profiles ADD COLUMN is_active INTEGER DEFAULT 0');
+      
+      // Set the first profile as active if any exist
+      const firstProfile = db.prepare('SELECT id FROM profiles ORDER BY created_at ASC LIMIT 1').get() as { id: number } | undefined;
+      if (firstProfile) {
+        db.prepare('UPDATE profiles SET is_active = 1 WHERE id = ?').run(firstProfile.id);
+        console.log(`Set profile ID ${firstProfile.id} as active`);
+      }
+    }
+  } catch (error) {
+    console.error('Error during database migration:', error);
+  }
 
   // Insert default profile if none exist
   const count = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
@@ -104,8 +125,9 @@ function insertDefaultProfile() {
     ]
   };
 
-  const stmt = db.prepare('INSERT INTO profiles (name, description, commands) VALUES (?, ?, ?)');
-  stmt.run(defaultProfile.name, defaultProfile.description, JSON.stringify(defaultProfile.commands));
+  // Insert as active profile (is_active = 1) since it's the first one
+  const stmt = db.prepare('INSERT INTO profiles (name, description, commands, is_active) VALUES (?, ?, ?, ?)');
+  stmt.run(defaultProfile.name, defaultProfile.description, JSON.stringify(defaultProfile.commands), 1);
 }
 
 async function initializeAdminUser() {
@@ -145,8 +167,19 @@ export const profileDb = {
     const rows = db.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all() as any[];
     return rows.map(row => ({
       ...row,
-      commands: JSON.parse(row.commands)
+      commands: JSON.parse(row.commands),
+      is_active: Boolean(row.is_active)
     }));
+  },
+
+  getActive(): ConfigProfile | undefined {
+    const row = db.prepare('SELECT * FROM profiles WHERE is_active = 1 LIMIT 1').get() as any;
+    if (!row) return undefined;
+    return {
+      ...row,
+      commands: JSON.parse(row.commands),
+      is_active: true
+    };
   },
 
   getById(id: number): ConfigProfile | undefined {
@@ -154,13 +187,14 @@ export const profileDb = {
     if (!row) return undefined;
     return {
       ...row,
-      commands: JSON.parse(row.commands)
+      commands: JSON.parse(row.commands),
+      is_active: Boolean(row.is_active)
     };
   },
 
   create(profile: ConfigProfile): ConfigProfile {
-    const stmt = db.prepare('INSERT INTO profiles (name, description, commands) VALUES (?, ?, ?)');
-    const result = stmt.run(profile.name, profile.description, JSON.stringify(profile.commands));
+    const stmt = db.prepare('INSERT INTO profiles (name, description, commands, is_active) VALUES (?, ?, ?, ?)');
+    const result = stmt.run(profile.name, profile.description, JSON.stringify(profile.commands), 0);
     return this.getById(result.lastInsertRowid as number)!;
   },
 
@@ -191,9 +225,32 @@ export const profileDb = {
     return this.getById(id);
   },
 
+  setActive(id: number): boolean {
+    // First, deactivate all profiles
+    db.prepare('UPDATE profiles SET is_active = 0').run();
+    
+    // Then activate the specified profile
+    const stmt = db.prepare('UPDATE profiles SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
+  },
+
   delete(id: number): boolean {
+    // Check if this is the active profile
+    const profile = this.getById(id);
+    const wasActive = profile?.is_active;
+    
     const stmt = db.prepare('DELETE FROM profiles WHERE id = ?');
     const result = stmt.run(id);
+    
+    // If we deleted the active profile, set another one as active
+    if (wasActive && result.changes > 0) {
+      const firstProfile = db.prepare('SELECT id FROM profiles ORDER BY created_at ASC LIMIT 1').get() as { id: number } | undefined;
+      if (firstProfile) {
+        this.setActive(firstProfile.id);
+      }
+    }
+    
     return result.changes > 0;
   }
 };

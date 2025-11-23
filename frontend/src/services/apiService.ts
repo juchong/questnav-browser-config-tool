@@ -19,6 +19,22 @@ export const api = {
   },
 
   // Admin endpoints
+  async getAllProfiles(): Promise<ConfigProfile[]> {
+    const response = await fetch(`${API_BASE}/admin/profiles`);
+    const data: ApiResponse<ConfigProfile[]> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to fetch all profiles');
+    return data.data!;
+  },
+
+  async setActiveProfile(id: number): Promise<ConfigProfile> {
+    const response = await fetch(`${API_BASE}/admin/profiles/${id}/activate`, {
+      method: 'PUT'
+    });
+    const data: ApiResponse<ConfigProfile> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to set active profile');
+    return data.data!;
+  },
+
   async createProfile(profile: ConfigProfile): Promise<ConfigProfile> {
     const response = await fetch(`${API_BASE}/admin/profiles`, {
       method: 'POST',

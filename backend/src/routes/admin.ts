@@ -36,6 +36,69 @@ function validateProfile(data: any): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
+// Get all profiles (admin only)
+router.get('/profiles', (req, res) => {
+  try {
+    const profiles = profileDb.getAll();
+    const response: ApiResponse<ConfigProfile[]> = {
+      success: true,
+      data: profiles
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Set active profile (admin only)
+router.put('/profiles/:id/activate', (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Invalid profile ID'
+      };
+      return res.status(400).json(response);
+    }
+
+    // Check if profile exists
+    const profile = profileDb.getById(id);
+    if (!profile) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Profile not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    const success = profileDb.setActive(id);
+    if (!success) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Failed to set profile as active'
+      };
+      return res.status(500).json(response);
+    }
+
+    const response: ApiResponse<ConfigProfile> = {
+      success: true,
+      data: profileDb.getById(id)
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
 // Create new profile
 router.post('/profiles', (req, res) => {
   try {

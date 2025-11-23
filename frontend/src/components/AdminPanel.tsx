@@ -25,7 +25,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       setLoading(true);
       setError(null);
       const [profilesData, statsData] = await Promise.all([
-        api.getProfiles(),
+        api.getAllProfiles(),
         api.getStats()
       ]);
       setProfiles(profilesData);
@@ -76,6 +76,15 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       await loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete profile');
+    }
+  };
+
+  const handleSetActive = async (id: number) => {
+    try {
+      await api.setActiveProfile(id);
+      await loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to set active profile');
     }
   };
 
@@ -294,20 +303,62 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         ) : (
           <div style={{ marginTop: '1rem' }}>
             {profiles.map(profile => (
-              <div key={profile.id} style={{ border: '1px solid #444', borderRadius: '4px', padding: '1rem', marginBottom: '1rem' }}>
+              <div 
+                key={profile.id} 
+                style={{ 
+                  border: profile.is_active ? '2px solid #3b82f6' : '1px solid #444', 
+                  borderRadius: '4px', 
+                  padding: '1rem', 
+                  marginBottom: '1rem',
+                  backgroundColor: profile.is_active ? '#3b82f610' : 'transparent'
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ marginBottom: '0.5rem' }}>{profile.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <h3 style={{ margin: 0 }}>{profile.name}</h3>
+                      {profile.is_active && (
+                        <span style={{
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                        }}>
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
                     <p style={{ opacity: 0.8, marginBottom: '0.5rem' }}>{profile.description}</p>
                     <div style={{ fontSize: '0.875rem', opacity: 0.6 }}>
                       {profile.commands.length} commands
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {!profile.is_active && (
+                      <button 
+                        onClick={() => handleSetActive(profile.id!)} 
+                        style={{ 
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#10b981',
+                          color: 'white'
+                        }}
+                      >
+                        Set as Active
+                      </button>
+                    )}
                     <button onClick={() => handleEdit(profile)} style={{ padding: '0.5rem 1rem' }}>
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(profile.id!)} style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: 'white' }}>
+                    <button 
+                      onClick={() => handleDelete(profile.id!)} 
+                      style={{ 
+                        padding: '0.5rem 1rem', 
+                        backgroundColor: '#ef4444', 
+                        color: 'white' 
+                      }}
+                    >
                       Delete
                     </button>
                   </div>
