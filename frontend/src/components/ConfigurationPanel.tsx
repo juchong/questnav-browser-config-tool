@@ -64,7 +64,7 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
     return (
       <div className="card">
         <h2>QuestNav Configuration</h2>
-        <p style={{ color: '#ef4444' }}>Error: {error}</p>
+        <p className="text-error">Error: {error}</p>
         <button onClick={loadProfile} style={{ marginTop: '1rem' }}>
           Retry
         </button>
@@ -76,7 +76,7 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
     return (
       <div className="card">
         <h2>QuestNav Configuration</h2>
-        <p style={{ color: '#ef4444' }}>No configuration available.</p>
+        <p className="text-error">No configuration available.</p>
       </div>
     );
   }
@@ -114,12 +114,11 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
       </div>
 
       {/* QuestNav APK Installation Toggle */}
-      <div style={{ 
+      <div className="bg-success-subtle" style={{ 
         marginTop: '1.5rem', 
         padding: '1rem', 
-        backgroundColor: '#10b98110', 
         borderRadius: '6px',
-        border: '1px solid #10b98133'
+        border: '1px solid rgba(76, 175, 80, 0.3)'
       }}>
         <label style={{ 
           display: 'flex', 
@@ -135,8 +134,7 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
             style={{
               width: '1.25rem',
               height: '1.25rem',
-              cursor: 'pointer',
-              accentColor: '#10b981'
+              cursor: 'pointer'
             }}
           />
           <div style={{ flex: 1 }}>
@@ -168,10 +166,7 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
           width: '100%',
           padding: '0.75rem',
           fontSize: '1.1rem',
-          fontWeight: 'bold',
-          backgroundColor: '#3b82f6',
-          color: 'white',
-          border: 'none'
+          fontWeight: 'bold'
         }}
       >
         Apply Configuration

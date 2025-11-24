@@ -14,14 +14,7 @@ export default function ConnectionStatus({ state, onConnect, onDisconnect, disab
     <div className="card" style={{ marginBottom: '2rem' }}>
       <h2>Connection Status</h2>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
-        <div
-          style={{
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            backgroundColor: state.connected ? '#4ade80' : '#ef4444'
-          }}
-        />
+        <div className={`status-dot ${state.connected ? 'connected' : 'disconnected'}`} />
         <span style={{ flex: 1 }}>
           {state.connected ? (
             `Connected to ${state.device?.name || 'Quest Device'}`

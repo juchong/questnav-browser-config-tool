@@ -392,7 +392,7 @@ function App() {
     return (
       <div>
         <h1>QuestNav Configuration Tool</h1>
-        <div className="card" style={{ backgroundColor: '#ef4444', color: 'white' }}>
+        <div className="card bg-error" style={{ color: 'white' }}>
           <h2>WebUSB Not Supported</h2>
           <p>
             Your browser doesn't support WebUSB, which is required for this tool to work.
@@ -417,20 +417,14 @@ function App() {
         <h1>QuestNav Configuration Tool</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
+            className={`tab-button ${view === 'user' ? 'active' : ''}`}
             onClick={() => setView('user')}
-            style={{
-              backgroundColor: view === 'user' ? '#3b82f6' : undefined,
-              color: view === 'user' ? 'white' : undefined
-            }}
           >
             User View
           </button>
           <button
+            className={`tab-button ${view === 'admin' ? 'active' : ''}`}
             onClick={() => setView('admin')}
-            style={{
-              backgroundColor: view === 'admin' ? '#3b82f6' : undefined,
-              color: view === 'admin' ? 'white' : undefined
-            }}
           >
             Admin Panel
           </button>
@@ -495,17 +489,11 @@ function App() {
               <h2>Welcome!</h2>
               <p>This tool allows you to quickly configure your Meta Quest headset with optimized settings.</p>
               
-              <div style={{ 
-                marginTop: '1.5rem', 
-                padding: '1rem', 
-                backgroundColor: '#3b82f620', 
-                borderLeft: '4px solid #3b82f6',
-                borderRadius: '4px' 
-              }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: '#3b82f6' }}>
+              <div className="info-box">
+                <h3>
                   📱 Using from Android Phone?
                 </h3>
-                <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
+                <p>
                   Perfect! Connect your Quest to your phone using a USB-C cable. 
                   Most modern Android phones support USB OTG and work great with this tool.
                 </p>
@@ -519,9 +507,9 @@ function App() {
                 <li>Allow USB debugging when prompted on your headset</li>
                 <li>Select a configuration profile and click "Apply Configuration"</li>
               </ol>
-              <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#3b82f620', borderRadius: '4px' }}>
+              <div className="info-box" style={{ marginTop: '1.5rem' }}>
                 <strong>Need help enabling Developer Mode?</strong>
-                <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                <p>
                   Visit the Meta Quest Developer Center and follow the instructions to create a developer account and enable Developer Mode in the Meta Quest mobile app.
                 </p>
               </div>

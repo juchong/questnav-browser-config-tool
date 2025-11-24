@@ -7,12 +7,21 @@ interface ProgressDisplayProps {
 export default function ProgressDisplay({ progress }: ProgressDisplayProps) {
   const percentage = progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
 
-  const getStatusColor = () => {
+  const getStatusColorClass = () => {
     switch (progress.status) {
-      case 'success': return '#4ade80';
-      case 'error': return '#ef4444';
-      case 'running': return '#3b82f6';
-      default: return '#6b7280';
+      case 'success': return 'text-success';
+      case 'error': return 'text-error';
+      case 'running': return 'text-primary';
+      default: return 'text-muted';
+    }
+  };
+
+  const getProgressBarClass = () => {
+    switch (progress.status) {
+      case 'success': return 'bg-success';
+      case 'error': return 'bg-error';
+      case 'running': return 'bg-primary';
+      default: return '';
     }
   };
 
@@ -35,17 +44,18 @@ export default function ProgressDisplay({ progress }: ProgressDisplayProps) {
             style={{
               width: '100%',
               height: '8px',
-              backgroundColor: '#333',
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid rgba(0,0,0,0.1)',
               borderRadius: '4px',
               overflow: 'hidden',
               marginBottom: '1rem'
             }}
           >
             <div
+              className={getProgressBarClass()}
               style={{
                 width: `${percentage}%`,
                 height: '100%',
-                backgroundColor: getStatusColor(),
                 transition: 'width 0.3s ease'
               }}
             />
@@ -62,14 +72,14 @@ export default function ProgressDisplay({ progress }: ProgressDisplayProps) {
       )}
 
       {progress.status === 'success' && (
-        <div style={{ color: getStatusColor() }}>
+        <div className={getStatusColorClass()}>
           All {progress.total} commands executed successfully!
         </div>
       )}
 
       {progress.status === 'error' && (
         <div>
-          <div style={{ color: getStatusColor(), marginBottom: '0.5rem' }}>
+          <div className={getStatusColorClass()} style={{ marginBottom: '0.5rem' }}>
             Failed at command {progress.completed + 1} of {progress.total}
           </div>
           {progress.error && (

@@ -212,20 +212,16 @@ export default function ErrorHelp({ error, onRetry, onDismiss }: ErrorHelpProps)
 
   // Determine styling based on error type
   const isWarning = help.type === 'warning';
-  const backgroundColor = isWarning ? '#f59e0b20' : '#ef444420';
-  const borderColor = isWarning ? '#f59e0b' : '#ef4444';
-  const titleColor = isWarning ? '#f59e0b' : '#ef4444';
 
   return (
-    <div className="card" style={{ 
-      backgroundColor, 
-      borderLeft: `4px solid ${borderColor}`,
+    <div className={`card ${isWarning ? 'bg-warning-subtle' : 'bg-error-subtle'}`} style={{ 
+      borderLeft: `4px solid var(${isWarning ? '--color-amber' : '--text-error'})`,
       marginTop: '1rem' 
     }}>
       <div style={{ display: 'flex', alignItems: 'start', gap: '1rem' }}>
         <div style={{ fontSize: '2rem' }}>{help.icon}</div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ color: titleColor, marginBottom: '0.5rem' }}>
+          <h3 className={isWarning ? 'text-warning' : 'text-error'} style={{ marginBottom: '0.5rem' }}>
             {help.title}
           </h3>
           <p style={{ marginBottom: '1rem', opacity: 0.9 }}>
@@ -249,11 +245,7 @@ export default function ErrorHelp({ error, onRetry, onDismiss }: ErrorHelpProps)
             {onRetry && (
               <button 
                 onClick={onRetry}
-                style={{ 
-                  backgroundColor: '#3b82f6', 
-                  color: 'white',
-                  padding: '0.5rem 1rem' 
-                }}
+                style={{ padding: '0.5rem 1rem' }}
               >
                 🔄 Retry Connection
               </button>
@@ -261,6 +253,7 @@ export default function ErrorHelp({ error, onRetry, onDismiss }: ErrorHelpProps)
             {onDismiss && (
               <button 
                 onClick={onDismiss}
+                className="secondary"
                 style={{ padding: '0.5rem 1rem' }}
               >
                 Dismiss
@@ -269,6 +262,7 @@ export default function ErrorHelp({ error, onRetry, onDismiss }: ErrorHelpProps)
             {help.technical && (
               <button 
                 onClick={() => setShowTechnical(!showTechnical)}
+                className="secondary"
                 style={{ 
                   padding: '0.5rem 1rem',
                   fontSize: '0.875rem',
@@ -284,7 +278,7 @@ export default function ErrorHelp({ error, onRetry, onDismiss }: ErrorHelpProps)
             <div style={{ 
               marginTop: '1rem', 
               padding: '0.75rem',
-              backgroundColor: '#00000020',
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
               borderRadius: '4px',
               fontSize: '0.875rem',
               fontFamily: 'monospace',

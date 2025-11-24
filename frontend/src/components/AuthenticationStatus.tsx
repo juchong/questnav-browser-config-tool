@@ -13,25 +13,25 @@ export default function AuthenticationStatus({ stage, message, timeRemaining, on
         return {
           icon: '🖱️',
           title: 'Select Device',
-          backgroundColor: '#3b82f620',
-          borderColor: '#3b82f6',
-          titleColor: '#3b82f6'
+          colorClass: 'text-primary',
+          bgClass: 'bg-primary-subtle',
+          borderVar: '--primary'
         };
       case 'connecting':
         return {
           icon: '🔌',
           title: 'Connecting',
-          backgroundColor: '#3b82f620',
-          borderColor: '#3b82f6',
-          titleColor: '#3b82f6'
+          colorClass: 'text-primary',
+          bgClass: 'bg-primary-subtle',
+          borderVar: '--primary'
         };
       case 'authenticating':
         return {
           icon: '📱',
           title: 'Authenticating',
-          backgroundColor: '#f59e0b20',
-          borderColor: '#f59e0b',
-          titleColor: '#f59e0b'
+          colorClass: 'text-warning',
+          bgClass: 'bg-warning-subtle',
+          borderVar: '--color-amber'
         };
     }
   };
@@ -52,16 +52,15 @@ export default function AuthenticationStatus({ stage, message, timeRemaining, on
   }
 
   return (
-    <div className="card" style={{ 
-      backgroundColor: info.backgroundColor, 
-      borderLeft: `4px solid ${info.borderColor}`,
+    <div className={`card ${info.bgClass}`} style={{ 
+      borderLeft: `4px solid var(${info.borderVar})`,
       marginTop: '1rem',
       marginBottom: '1rem'
     }}>
       <div style={{ display: 'flex', alignItems: 'start', gap: '1rem' }}>
         <div style={{ fontSize: '2rem' }}>{info.icon}</div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ color: info.titleColor, marginBottom: '0.5rem', fontSize: '1.125rem' }}>
+          <h3 className={info.colorClass} style={{ marginBottom: '0.5rem', fontSize: '1.125rem' }}>
             {info.title}
           </h3>
           <p style={{ marginBottom: timeRemaining !== undefined ? '0.75rem' : '1rem', opacity: 0.9, lineHeight: 1.6 }}>
@@ -74,7 +73,7 @@ export default function AuthenticationStatus({ stage, message, timeRemaining, on
               alignItems: 'center',
               gap: '0.75rem',
               padding: '0.75rem',
-              backgroundColor: '#00000020',
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
               borderRadius: '6px',
               marginBottom: '1rem'
             }}>
@@ -83,11 +82,10 @@ export default function AuthenticationStatus({ stage, message, timeRemaining, on
                 <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '0.25rem' }}>
                   Time remaining
                 </div>
-                <div style={{ 
+                <div className={info.colorClass} style={{ 
                   fontSize: '1.5rem', 
                   fontWeight: 'bold',
-                  fontFamily: 'monospace',
-                  color: info.titleColor
+                  fontFamily: 'monospace'
                 }}>
                   {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
                 </div>
@@ -100,8 +98,8 @@ export default function AuthenticationStatus({ stage, message, timeRemaining, on
               marginBottom: '1rem',
               borderRadius: '8px',
               overflow: 'hidden',
-              border: '2px solid #00000020',
-              backgroundColor: '#00000010',
+              border: '2px solid rgba(0, 0, 0, 0.1)',
+              backgroundColor: 'rgba(0, 0, 0, 0.05)',
               display: 'flex',
               justifyContent: 'center'
             }}>
@@ -119,28 +117,18 @@ export default function AuthenticationStatus({ stage, message, timeRemaining, on
           )}
 
           {stage === 'authenticating' && (
-            <div style={{
-              padding: '0.75rem',
-              backgroundColor: '#3b82f610',
-              borderRadius: '6px',
-              marginBottom: '1rem',
-              fontSize: '0.875rem',
-              lineHeight: 1.6
-            }}>
+            <div className="info-box" style={{ margin: '0 0 1rem 0' }}>
               <strong>💡 Tip:</strong> Make sure to select <strong>"Always allow from this computer"</strong> to avoid this prompt in the future.
             </div>
           )}
 
           {onCancel && (
             <button 
+              className="bg-error"
               onClick={onCancel}
               style={{ 
-                backgroundColor: '#ef4444', 
                 color: 'white',
                 padding: '0.5rem 1rem',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
                 fontSize: '0.875rem'
               }}
             >

@@ -37,7 +37,7 @@ function Login({ onLoginSuccess }: LoginProps) {
   return (
     <div className="card" style={{ maxWidth: '400px', margin: '2rem auto' }}>
       <h2>Admin Login</h2>
-      <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+      <p className="text-muted" style={{ marginBottom: '1.5rem' }}>
         Please log in to access the admin panel.
       </p>
 
@@ -58,7 +58,6 @@ function Login({ onLoginSuccess }: LoginProps) {
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ccc',
               borderRadius: '4px',
               boxSizing: 'border-box'
             }}
@@ -81,7 +80,6 @@ function Login({ onLoginSuccess }: LoginProps) {
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ccc',
               borderRadius: '4px',
               boxSizing: 'border-box'
             }}
@@ -89,15 +87,13 @@ function Login({ onLoginSuccess }: LoginProps) {
         </div>
 
         {error && (
-          <div style={{
+          <div className="bg-error-subtle" style={{
             padding: '0.75rem',
             marginBottom: '1rem',
-            backgroundColor: '#fee',
-            border: '1px solid #fcc',
-            borderRadius: '4px',
-            color: '#c33'
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '4px'
           }}>
-            {error}
+            <span className="text-error">{error}</span>
           </div>
         )}
 
@@ -108,12 +104,7 @@ function Login({ onLoginSuccess }: LoginProps) {
             width: '100%',
             padding: '0.75rem',
             fontSize: '1rem',
-            fontWeight: 500,
-            backgroundColor: isLoading ? '#ccc' : '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isLoading ? 'not-allowed' : 'pointer'
+            fontWeight: 500
           }}
         >
           {isLoading ? 'Logging in...' : 'Login'}
