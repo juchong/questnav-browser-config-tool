@@ -1,25 +1,25 @@
-import jwt from 'jsonwebtoken';
-import { JwtPayload } from '../models/types';
+import jwt, { Secret } from 'jsonwebtoken';
+import { CustomJwtPayload } from '../models/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET: Secret = process.env.JWT_SECRET || 'default-secret-change-in-production';
+const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '7d');
 
 export const authService = {
   /**
    * Generate a JWT token for the authenticated user
    */
-  generateToken(payload: JwtPayload): string {
+  generateToken(payload: CustomJwtPayload): string {
     return jwt.sign(payload, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN
-    });
+    } as jwt.SignOptions);
   },
 
   /**
    * Verify and decode a JWT token
    */
-  verifyToken(token: string): JwtPayload | null {
+  verifyToken(token: string): CustomJwtPayload | null {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+      const decoded = jwt.verify(token, JWT_SECRET) as CustomJwtPayload;
       return decoded;
     } catch (error) {
       return null;

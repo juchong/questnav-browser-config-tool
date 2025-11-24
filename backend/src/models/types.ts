@@ -98,7 +98,7 @@ export interface AuthResponse {
   error?: string;
 }
 
-export interface JwtPayload {
+export interface CustomJwtPayload {
   userId: number;
   username: string;
 }

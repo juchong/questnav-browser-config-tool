@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/authService';
-import { JwtPayload } from '../models/types';
+import { CustomJwtPayload } from '../models/types';
 
 // Extend Express Request to include user data
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload;
+      user?: CustomJwtPayload;
     }
   }
 }
