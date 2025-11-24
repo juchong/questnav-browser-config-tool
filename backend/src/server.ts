@@ -18,6 +18,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Trust proxy - required when behind reverse proxy (Nginx, Cloudflare, etc.)
+// This allows rate limiting and logging to see real client IPs from X-Forwarded-For header
+// For Cloudflare ZeroTrust tunnels, trust all proxies
+if (NODE_ENV === 'production') {
+  app.set('trust proxy', true);
+}
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: NODE_ENV === 'production' ? {
