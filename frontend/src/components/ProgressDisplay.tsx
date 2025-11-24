@@ -60,11 +60,11 @@ export default function ProgressDisplay({ progress }: ProgressDisplayProps) {
               }}
             />
           </div>
-          <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+          <div style={{ opacity: 0.8 }}>
             {progress.completed} of {progress.total} commands executed
           </div>
           {progress.current && (
-            <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.5rem' }}>
+            <div style={{ opacity: 0.7, marginTop: '0.5rem' }}>
               Current: {progress.current}
             </div>
           )}
@@ -83,7 +83,7 @@ export default function ProgressDisplay({ progress }: ProgressDisplayProps) {
             Failed at command {progress.completed + 1} of {progress.total}
           </div>
           {progress.error && (
-            <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+            <div style={{ opacity: 0.8 }}>
               Error: {progress.error}
             </div>
           )}

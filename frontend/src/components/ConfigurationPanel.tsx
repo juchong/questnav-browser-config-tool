@@ -1,23 +1,20 @@
 import { useState, useEffect } from 'react';
 import { ConfigProfile } from '../types';
 import { api } from '../services/apiService';
-import { githubService } from '../services/githubService';
 
 interface ConfigurationPanelProps {
   onSelectProfile: (profile: ConfigProfile, installQuestNav: boolean) => void;
   disabled?: boolean;
+  installQuestNav: boolean;
 }
 
-export default function ConfigurationPanel({ onSelectProfile, disabled }: ConfigurationPanelProps) {
+export default function ConfigurationPanel({ onSelectProfile, disabled, installQuestNav }: ConfigurationPanelProps) {
   const [profile, setProfile] = useState<ConfigProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [installQuestNav, setInstallQuestNav] = useState(true); // Enabled by default
-  const [questNavInfo, setQuestNavInfo] = useState<{ version: string; name: string } | null>(null);
 
   useEffect(() => {
     loadProfile();
-    loadQuestNavInfo();
   }, []);
 
   const loadProfile = async () => {
@@ -35,13 +32,6 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
       setError(err instanceof Error ? err.message : 'Failed to load configuration');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadQuestNavInfo = async () => {
-    const info = await githubService.getLatestApkUrl();
-    if (info) {
-      setQuestNavInfo({ version: info.version, name: info.name });
     }
   };
 
@@ -111,51 +101,6 @@ export default function ConfigurationPanel({ onSelectProfile, disabled }: Config
             </>
           );
         })()}
-      </div>
-
-      {/* QuestNav APK Installation Toggle */}
-      <div className="bg-success-subtle" style={{ 
-        marginTop: '1.5rem', 
-        padding: '1rem', 
-        borderRadius: '6px',
-        border: '1px solid rgba(76, 175, 80, 0.3)'
-      }}>
-        <label style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.75rem',
-          cursor: 'pointer',
-          userSelect: 'none'
-        }}>
-          <input
-            type="checkbox"
-            checked={installQuestNav}
-            onChange={(e) => setInstallQuestNav(e.target.checked)}
-            style={{
-              width: '1.25rem',
-              height: '1.25rem',
-              cursor: 'pointer'
-            }}
-          />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              📦 Install QuestNav APK
-              {questNavInfo && (
-                <span style={{ 
-                  marginLeft: '0.5rem', 
-                  fontSize: '0.75rem', 
-                  fontWeight: 'normal', 
-                  opacity: 0.7 
-                }}>
-                  ({questNavInfo.version})
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
-              Automatically install the latest QuestNav app for robot tracking and navigation
-            </div>
-          </div>
-        </label>
       </div>
 
       <button

@@ -37,10 +37,79 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Explicit light mode (when user manually selects it) */
+:root[data-theme='light'] {
+  --primary: #33A1FD;
+  --primary-dark: #1E92F6;
+  --primary-darker: #0C87F2;
+  --primary-darkest: #086AC8;
+  --primary-light: #4EAEFE;
+  --primary-lighter: #69BCFE;
+  --primary-lightest: #8FCFFF;
+  
+  --background-color: #F4F4F9;
+  --surface-color: #ffffff;
+  --text-color: #1c1e21;
+  --text-secondary: #525860;
+  
+  /* Accent colors */
+  --color-teal: #00BCD4;
+  --color-purple: #5E35B1;
+  --color-amber: #FFC107;
+  --color-brown: #8D6E63;
+  --color-success: #4CAF50;
+
+  color-scheme: light;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
 /* Dark mode color scheme */
-[data-theme='dark'],
+:root[data-theme='dark'] {
+  --primary: #4EAEFE;
+  --primary-dark: #33A1FD;
+  --primary-darker: #1E92F6;
+  --primary-darkest: #0C87F2;
+  --primary-light: #69BCFE;
+  --primary-lighter: #8FCFFF;
+  --primary-lightest: #B5DFFF;
+  
+  --background-color: #1c1e21;
+  --surface-color: #2a2d31;
+  --text-color: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  
+  /* Accent colors - dark mode */
+  --color-teal: #26C6DA;
+  --color-purple: #7E57C2;
+  --color-amber: #FFCA28;
+  --color-brown: #A1887F;
+  --color-success: #66BB6A;
+
+  color-scheme: dark;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+[data-theme='dark'] .bg-primary-subtle { 
+  background-color: rgba(78, 174, 254, 0.15); 
+}
+
+[data-theme='dark'] .bg-success-subtle { 
+  background-color: rgba(102, 187, 106, 0.15); 
+}
+
+[data-theme='dark'] .bg-error-subtle { 
+  background-color: rgba(239, 68, 68, 0.15); 
+}
+
+[data-theme='dark'] .bg-warning-subtle { 
+  background-color: rgba(245, 158, 11, 0.15); 
+}
+
+/* System preference for dark mode (when no manual theme is set) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --primary: #4EAEFE;
     --primary-dark: #33A1FD;
     --primary-darker: #1E92F6;
@@ -66,10 +135,21 @@
     background-color: var(--background-color);
   }
   
-  .bg-primary-subtle { background-color: rgba(78, 174, 254, 0.15); }
-  .bg-success-subtle { background-color: rgba(102, 187, 106, 0.15); }
-  .bg-error-subtle { background-color: rgba(239, 68, 68, 0.15); }
-  .bg-warning-subtle { background-color: rgba(245, 158, 11, 0.15); }
+  :root:not([data-theme]) .bg-primary-subtle { 
+    background-color: rgba(78, 174, 254, 0.15); 
+  }
+  
+  :root:not([data-theme]) .bg-success-subtle { 
+    background-color: rgba(102, 187, 106, 0.15); 
+  }
+  
+  :root:not([data-theme]) .bg-error-subtle { 
+    background-color: rgba(239, 68, 68, 0.15); 
+  }
+  
+  :root:not([data-theme]) .bg-warning-subtle { 
+    background-color: rgba(245, 158, 11, 0.15); 
+  }
 }
 
 * {
@@ -153,8 +233,12 @@ code {
   border-radius: 3px;
 }
 
+[data-theme='dark'] code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 @media (prefers-color-scheme: dark) {
-  code {
+  :root:not([data-theme]) code {
     background-color: rgba(255, 255, 255, 0.1);
   }
 }
@@ -242,12 +326,20 @@ button.secondary:hover {
   }
 }
 
+[data-theme='dark'] .card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 @media (prefers-color-scheme: dark) {
-  .card {
+  :root:not([data-theme]) .card {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   
-  .card:hover {
+  :root:not([data-theme]) .card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
 }
@@ -267,14 +359,18 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
 }
 
-@media (prefers-color-scheme: dark) {
-  input, select, textarea {
-    border-color: rgba(255, 255, 255, 0.1);
-  }
+[data-theme='dark'] input,
+[data-theme='dark'] select,
+[data-theme='dark'] textarea {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-@media (prefers-color-scheme: light) {
-  /* Light mode overrides already defined in :root */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) input,
+  :root:not([data-theme]) select,
+  :root:not([data-theme]) textarea {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
 }
 
 /* Remove the redundant light mode block */
@@ -448,5 +544,20 @@ input:focus, select:focus, textarea:focus {
 .badge-teal {
   background-color: var(--color-teal);
   color: white;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  background-color: rgba(51, 161, 253, 0.1) !important;
+  transform: scale(1.1) !important;
+  box-shadow: none !important;
+}
+
+.theme-toggle:active {
+  transform: scale(0.95) !important;
 }
 

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import Confetti from 'react-confetti';
 import ConnectionStatus from './components/ConnectionStatus';
-import ConfigurationPanel from './components/ConfigurationPanel';
 import ProgressDisplay from './components/ProgressDisplay';
 import AdminPanel from './components/AdminPanel';
 import ErrorHelp from './components/ErrorHelp';
 import AuthenticationStatus from './components/AuthenticationStatus';
 import Login from './components/Login';
+import ThemeToggle from './components/ThemeToggle';
+import Logo from './components/Logo';
 import { adbService } from './services/adbService';
 import { api } from './services/apiService';
 import { authService } from './services/authService';
@@ -37,9 +39,47 @@ function App() {
     status: 'idle'
   });
   const [isExecuting, setIsExecuting] = useState(false);
+  const [installQuestNav, setInstallQuestNav] = useState(true); // State for QuestNav installation
+  const [profile, setProfile] = useState<ConfigProfile | null>(null); // State for loaded profile
+  const [showConfetti, setShowConfetti] = useState(false); // State for confetti celebration
+  const [windowDimensions, setWindowDimensions] = useState({ 
+    width: window.innerWidth, 
+    height: window.innerHeight 
+  });
   
   // Collect browser info once on mount
   const [browserInfo] = useState(() => collectBrowserInfo());
+
+  // Load profile when connected
+  useEffect(() => {
+    if (connectionState.connected && !profile) {
+      loadProfile();
+    }
+  }, [connectionState.connected]);
+
+  // Update window dimensions on resize for confetti
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const data = await api.getProfiles();
+      if (data.length > 0) {
+        setProfile(data[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+    }
+  };
 
   // Check authentication status on mount and when switching to admin view
   useEffect(() => {
@@ -280,6 +320,9 @@ function App() {
           status: 'success'
         });
         
+        // Trigger confetti celebration!
+        setShowConfetti(true);
+        
         // Log success with full details
         if (profile.id) {
           await api.logExecution({
@@ -391,31 +434,127 @@ function App() {
   if (!isWebUsbSupported) {
     return (
       <div>
-        <h1>QuestNav Configuration Tool</h1>
-        <div className="card bg-error" style={{ color: 'white' }}>
-          <h2>WebUSB Not Supported</h2>
-          <p>
-            Your browser doesn't support WebUSB, which is required for this tool to work.
-          </p>
-          <p style={{ marginTop: '1rem' }}>
-            Please use a Chromium-based browser such as:
-          </p>
-          <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-            <li>Google Chrome (version 112 or later)</li>
-            <li>Microsoft Edge</li>
-            <li>Brave</li>
-            <li>Opera</li>
-          </ul>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <Logo />
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              className={`tab-button ${view === 'user' ? 'active' : ''}`}
+              onClick={() => setView('user')}
+            >
+              User View
+            </button>
+            <button
+              className={`tab-button ${view === 'admin' ? 'active' : ''}`}
+              onClick={() => setView('admin')}
+            >
+              Admin Panel
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
+
+        {view === 'admin' ? (
+          <>
+            {isCheckingAuth ? (
+              <div className="card">
+                <p>Checking authentication...</p>
+              </div>
+            ) : isAuthenticated ? (
+              <AdminPanel onLogout={handleLogout} />
+            ) : (
+              <Login onLoginSuccess={handleLoginSuccess} />
+            )}
+          </>
+        ) : (
+          <>
+            <div className="card" style={{ marginTop: '1.5rem' }}>
+              <h2>QuestNav Setup Tool</h2>
+              <p>This tool allows you to quickly configure your Meta Quest headset with optimized settings.</p>
+              
+              <div className="info-box" style={{ 
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderLeftColor: '#f59e0b'
+              }}>
+                <h3 style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                  Developer Mode Required
+                </h3>
+                <p>
+                  Before you begin, you must enable Developer Mode on your Meta Quest headset before using this tool. 
+                  Visit the <a href="https://developers.meta.com/horizon/documentation/android-apps/enable-developer-mode" target="_blank" rel="noopener noreferrer">Meta Quest Developer Center</a> to create a developer account and enable Developer Mode in the Meta Quest mobile app.
+                </p>
+              </div>
+
+              <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>Getting started:</h3>
+              <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8 }}>
+                <li><a href="https://developers.meta.com/horizon/documentation/android-apps/enable-developer-mode" target="_blank" rel="noopener noreferrer">Enable Developer Mode</a> on your Quest headset</li>
+                <li>Connect your Quest headset via USB cable to your device
+                  <ul style={{ paddingLeft: '1.5rem', marginTop: '0.25rem', listStyle: 'none' }}>
+                    <li>Supported devices: Windows · Linux · MacOS · Android</li>
+                  </ul>
+                </li>
+                <li>Click the "Connect Quest" button to get started</li>
+                <li>Select your Quest headset from the prompt window</li>
+                <li>Allow your browser to access your Quest headset when prompted</li>
+              </ol>
+            </div>
+
+            <div className="card" style={{ 
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              borderLeft: '4px solid #ef4444',
+              marginBottom: '2rem'
+            }}>
+              <h2 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Unsupported Browser Detected
+              </h2>
+              <p style={{ marginTop: '1rem' }}>
+                This tool requires a Chromium-based browser that supports WebUSB.
+              </p>
+              <p style={{ marginTop: '1rem' }}>
+                For example, you can use:
+              </p>
+              <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', lineHeight: 1.8 }}>
+                <li>Google Chrome (version 112 or later)</li>
+                <li>Microsoft Edge</li>
+                <li>Brave</li>
+                <li>Opera</li>
+              </ul>
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>QuestNav Configuration Tool</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+      {/* Confetti celebration on successful configuration */}
+      {showConfetti && (
+        <Confetti
+          width={windowDimensions.width}
+          height={windowDimensions.height}
+          numberOfPieces={100}
+          recycle={false}
+          gravity={0.3}
+          onConfettiComplete={(confetti) => {
+            setShowConfetti(false);
+            confetti?.reset();
+          }}
+        />
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <Logo />
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
             className={`tab-button ${view === 'user' ? 'active' : ''}`}
             onClick={() => setView('user')}
@@ -428,6 +567,7 @@ function App() {
           >
             Admin Panel
           </button>
+          <ThemeToggle />
         </div>
       </div>
 
@@ -445,6 +585,42 @@ function App() {
         </>
       ) : (
         <>
+          <div className="card" style={{ marginTop: '1.5rem' }}>
+            <h2>QuestNav Setup Tool</h2>
+            <p>This tool allows you to quickly configure your Meta Quest headset with optimized settings.</p>
+            
+            <div className="info-box" style={{ 
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderLeftColor: '#f59e0b'
+            }}>
+              <h3 style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Developer Mode Required
+              </h3>
+              <p>
+                Before you begin, you must enable Developer Mode on your Meta Quest headset before using this tool. 
+                Visit the <a href="https://developers.meta.com/horizon/documentation/android-apps/enable-developer-mode" target="_blank" rel="noopener noreferrer">Meta Quest Developer Center</a> to create a developer account and enable Developer Mode in the Meta Quest mobile app.
+              </p>
+            </div>
+
+            <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>Getting started:</h3>
+            <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8 }}>
+              <li><a href="https://developers.meta.com/horizon/documentation/android-apps/enable-developer-mode" target="_blank" rel="noopener noreferrer">Enable Developer Mode</a> on your Quest headset</li>
+              <li>Connect your Quest headset via USB cable to your device
+                <ul style={{ paddingLeft: '1.5rem', marginTop: '0.25rem', listStyle: 'none' }}>
+                  <li>Supported devices: Windows · Linux · MacOS · Android</li>
+                </ul>
+              </li>
+              <li>Click the "Connect Quest" button to get started</li>
+              <li>Select your Quest headset from the prompt window</li>
+              <li>Allow your browser to access your Quest headset when prompted</li>
+            </ol>
+          </div>
+
           <ConnectionStatus
             state={connectionState}
             onConnect={handleConnect}
@@ -452,6 +628,10 @@ function App() {
             disabled={isExecuting}
             isConnecting={isConnecting}
             onCancelConnection={handleCancelConnection}
+            installQuestNav={installQuestNav}
+            onInstallQuestNavChange={setInstallQuestNav}
+            onApplyConfiguration={connectionState.connected && profile ? () => handleApplyConfiguration(profile, installQuestNav) : undefined}
+            profile={profile}
           />
 
           {connectionStatusInfo && (
@@ -471,49 +651,8 @@ function App() {
             />
           )}
 
-          {connectionState.connected && (
-            <>
-              <ConfigurationPanel
-                onSelectProfile={handleApplyConfiguration}
-                disabled={isExecuting}
-              />
-              
-              {(progress.status !== 'idle') && (
-                <ProgressDisplay progress={progress} />
-              )}
-            </>
-          )}
-
-          {!connectionState.connected && (
-            <div className="card">
-              <h2>Welcome!</h2>
-              <p>This tool allows you to quickly configure your Meta Quest headset with optimized settings.</p>
-              
-              <div className="info-box">
-                <h3>
-                  📱 Using from Android Phone?
-                </h3>
-                <p>
-                  Perfect! Connect your Quest to your phone using a USB-C cable. 
-                  Most modern Android phones support USB OTG and work great with this tool.
-                </p>
-              </div>
-
-              <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>Before you begin:</h3>
-              <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8 }}>
-                <li>Enable Developer Mode on your Quest headset</li>
-                <li>Connect your Quest via USB cable (to phone, Mac, or Linux PC)</li>
-                <li>Click "Connect Quest" button above</li>
-                <li>Allow USB debugging when prompted on your headset</li>
-                <li>Select a configuration profile and click "Apply Configuration"</li>
-              </ol>
-              <div className="info-box" style={{ marginTop: '1.5rem' }}>
-                <strong>Need help enabling Developer Mode?</strong>
-                <p>
-                  Visit the Meta Quest Developer Center and follow the instructions to create a developer account and enable Developer Mode in the Meta Quest mobile app.
-                </p>
-              </div>
-            </div>
+          {(progress.status !== 'idle') && (
+            <ProgressDisplay progress={progress} />
           )}
         </>
       )}
