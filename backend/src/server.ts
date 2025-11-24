@@ -18,6 +18,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Local development configuration
+// When ALLOW_HTTP_LOCAL=true, allows HTTP access for local development
+// This disables upgrade-insecure-requests CSP directive for local testing
+const ALLOW_HTTP_LOCAL = process.env.ALLOW_HTTP_LOCAL === 'true';
+
 // Trust proxy - required when behind reverse proxy (Nginx, Cloudflare, etc.)
 // This allows rate limiting and logging to see real client IPs from X-Forwarded-For header
 // For Cloudflare ZeroTrust tunnels, trust all proxies
@@ -48,7 +53,13 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: []
+      // Conditionally add upgradeInsecureRequests based on ALLOW_HTTP_LOCAL flag
+      // When ALLOW_HTTP_LOCAL=true, this directive is omitted to allow HTTP for local development
+      ...(ALLOW_HTTP_LOCAL ? {} : { upgradeInsecureRequests: [] }),
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      scriptSrcAttr: ["'none'"]
     }
   } : false
 }));
