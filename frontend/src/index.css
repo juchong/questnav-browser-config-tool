@@ -3,15 +3,61 @@
   line-height: 1.5;
   font-weight: 400;
 
+  /* QuestNav Color Scheme - Light Mode */
+  --primary: #33A1FD;
+  --primary-dark: #1E92F6;
+  --primary-darker: #0C87F2;
+  --primary-darkest: #086AC8;
+  --primary-light: #4EAEFE;
+  --primary-lighter: #69BCFE;
+  --primary-lightest: #8FCFFF;
+  
+  --background-color: #F4F4F9;
+  --surface-color: #ffffff;
+  --text-color: #1c1e21;
+  --text-secondary: #525860;
+  
+  /* Accent colors */
+  --color-teal: #00BCD4;
+  --color-purple: #5E35B1;
+  --color-amber: #FFC107;
+  --color-brown: #8D6E63;
+  --color-success: #4CAF50;
+
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--text-color);
+  background-color: var(--background-color);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Dark mode color scheme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #4EAEFE;
+    --primary-dark: #33A1FD;
+    --primary-darker: #1E92F6;
+    --primary-darkest: #0C87F2;
+    --primary-light: #69BCFE;
+    --primary-lighter: #8FCFFF;
+    --primary-lightest: #B5DFFF;
+    
+    --background-color: #31393C;
+    --surface-color: #1c1e21;
+    --text-color: rgba(255, 255, 255, 0.87);
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    
+    /* Accent colors - dark mode */
+    --color-teal: #26C6DA;
+    --color-purple: #7E57C2;
+    --color-amber: #FFCA28;
+    --color-brown: #A1887F;
+    --color-success: #66BB6A;
+  }
 }
 
 * {
@@ -25,6 +71,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;
+  background-color: var(--background-color);
+  color: var(--text-color);
 }
 
 #root {
@@ -53,26 +101,30 @@ h1 {
 
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  border: 2px solid transparent;
+  padding: 0.75em 2em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--primary);
+  color: white;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.3s ease;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   min-height: 44px; /* iOS touch target minimum */
 }
 
 button:hover {
-  border-color: #646cff;
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(51, 161, 253, 0.3);
 }
 
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 button:disabled {
@@ -81,15 +133,34 @@ button:disabled {
 }
 
 button:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0);
+}
+
+/* Secondary button variant */
+button.secondary {
+  background-color: transparent;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+button.secondary:hover {
+  background-color: var(--primary);
+  color: white;
 }
 
 .card {
   padding: 1.5em;
-  background-color: #1a1a1a;
+  background-color: var(--surface-color);
   border-radius: 8px;
   margin-bottom: 1rem;
   word-wrap: break-word;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
 }
 
 @media (min-width: 768px) {
@@ -98,24 +169,42 @@ button:active:not(:disabled) {
   }
 }
 
+@media (prefers-color-scheme: dark) {
+  .card {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .card:hover {
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
 input, select, textarea {
   font-size: 16px; /* Prevents iOS zoom on focus */
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 0.5em;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-color: var(--primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  input, select, textarea {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
 }
 
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  
-  button {
-    background-color: #f9f9f9;
-  }
-  
-  .card {
-    background-color: #f9f9f9;
-  }
+  /* Light mode overrides already defined in :root */
 }
+
+/* Remove the redundant light mode block */
 
 /* Mobile-specific improvements */
 @media (max-width: 767px) {
