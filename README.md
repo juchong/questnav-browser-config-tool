@@ -7,9 +7,11 @@ A web-based tool for configuring Meta Quest 2/3 headsets via WebUSB. Apply ADB c
 - **One-Click Configuration** - Apply complete device configurations instantly
 - **APK Installation** - Install applications directly via browser
 - **WebUSB/ADB** - Direct browser-to-device communication (no cables or desktop ADB needed)
+- **Command Preview** - Expandable table view of all commands before execution
+- **Dark/Light Theme** - System-aware theme toggle with persistent preferences
 - **Admin Panel** - Manage profiles, view execution logs, control command visibility
 - **Cross-Platform** - Works on Windows, macOS, Linux, and Android (Chrome/Edge)
-- **Secure** - JWT authentication, rate limiting, bcrypt password hashing
+- **Secure** - JWT authentication, rate limiting, bcrypt password hashing, IP-based CSP
 
 ## Quick Start
 
@@ -26,10 +28,10 @@ A web-based tool for configuring Meta Quest 2/3 headsets via WebUSB. Apply ADB c
 2. **Start Dev Servers**
    ```bash
    # Automated (Windows)
-   .\start-dev.ps1
+   .\scripts\start-dev.ps1
    
    # Automated (Linux/Mac)
-   ./start-dev.sh
+   ./scripts/start-dev.sh
    
    # Manual
    cd backend && npm install && npm run dev  # Terminal 1
@@ -86,17 +88,37 @@ questnav-browser-config-tool/
 │   └── package.json
 ├── docker/
 │   └── nginx.conf          # HTTPS reverse proxy config
+├── scripts/
+│   ├── start-dev.ps1       # Windows dev server launcher
+│   └── start-dev.sh        # Unix dev server launcher
 ├── docker-compose.yml
 └── Dockerfile
 ```
 
 ## Key Features Explained
 
+### Command Preview
+- Expandable table view showing all commands before execution
+- Displays command category, description, and actual command text
+- Includes QuestNav APK installation if enabled
+- Filters hidden commands from user view
+
 ### APK Installation
 - Downloads APKs from URLs and caches them server-side
 - Streams to device via WebUSB (no CORS issues)
 - Installs to `/data/local/tmp/` (correct SELinux context)
 - Supports large files (tested with 79MB APKs)
+
+### Theme Support
+- Light and dark mode toggle
+- Follows system preferences by default
+- Persistent user preference stored in localStorage
+- Theme-aware logo and UI components
+
+### Success Celebration
+- Confetti animation on successful configuration
+- 100 pieces falling from top of screen
+- Automatically clears when complete
 
 ### Per-Command Visibility
 - Hide individual commands from users while still executing them
@@ -171,6 +193,10 @@ APK_STORAGE_DIR=./data/apks
 CORS_ORIGIN=http://localhost:5173
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
+
+# Local Development (HTTP Support)
+ALLOW_HTTP_LOCAL=true
+LOCAL_SUBNETS=127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 ```
 
 **Docker** (`.env` in project root):
@@ -180,6 +206,8 @@ ADMIN_PASSWORD=secure-password
 JWT_SECRET=random-secret
 CORS_ORIGIN=https://yourdomain.com
 ```
+
+See `env.example` for detailed configuration options.
 
 ## Troubleshooting
 
@@ -211,6 +239,9 @@ CORS_ORIGIN=https://yourdomain.com
 - **Passwords**: bcrypt hashing (10 rounds)
 - **Rate Limiting**: 100 requests per 15 minutes
 - **Command Validation**: Server-side whitelist
+- **IP-Based CSP**: Conditional Content Security Policy based on client IP
+  - External traffic: Strict HTTPS enforcement
+  - Local subnets: Optional HTTP support for development
 - **HTTPS Required**: WebUSB only works over HTTPS in production
 - **CORS**: Configurable origin restriction
 - **SQL Injection**: Parameterized queries
@@ -237,8 +268,8 @@ docker-compose build
 
 ## Technologies
 
-- **Frontend**: React 18, Vite, TypeScript, Tango ADB (@yume-chan/adb)
-- **Backend**: Node.js, Express, TypeScript, SQLite (better-sqlite3)
+- **Frontend**: React 18, Vite, TypeScript, Tango ADB (@yume-chan/adb), react-confetti
+- **Backend**: Node.js, Express, TypeScript, SQLite (better-sqlite3), ip-range-check
 - **Auth**: JWT (jsonwebtoken), bcrypt
 - **Deployment**: Docker, Nginx
 - **Security**: Helmet, express-rate-limit, cookie-parser
