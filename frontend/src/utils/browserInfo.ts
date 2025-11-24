@@ -60,7 +60,7 @@ function parseUserAgent(userAgent: string): { name: string; version: string; eng
 /**
  * Parse platform to extract OS name and version
  */
-function parseOS(userAgent: string, platform: string): { name: string; version: string } {
+function parseOS(userAgent: string): { name: string; version: string } {
   const ua = userAgent.toLowerCase();
   
   let osName = 'Unknown';
@@ -165,7 +165,7 @@ function generateFingerprint(): string {
 export function collectBrowserInfo(): BrowserInfo {
   const userAgent = navigator.userAgent;
   const { name: browserName, version: browserVersion, engine: browserEngine } = parseUserAgent(userAgent);
-  const { name: osName, version: osVersion } = parseOS(userAgent, navigator.platform);
+  const { name: osName, version: osVersion } = parseOS(userAgent);
   
   return {
     browser_name: browserName,

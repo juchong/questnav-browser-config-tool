@@ -534,9 +534,10 @@ export const adbService = {
         // console.log(`Starting upload to ${tempPath}`);
         
         // Write file to device directly from stream
+        // Cast to any to avoid ReadableStream type conflicts between DOM and Node types
         await sync.write({
           filename: tempPath,
-          file: response.body,
+          file: response.body as any,
         });
         
         // console.log('Upload complete');
