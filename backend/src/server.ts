@@ -20,7 +20,29 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false
+  contentSecurityPolicy: NODE_ENV === 'production' ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'", // Required for Vite/React
+        "https://static.cloudflareinsights.com"
+      ],
+      scriptSrcElem: [
+        "'self'",
+        "https://static.cloudflareinsights.com"
+      ],
+      connectSrc: [
+        "'self'",
+        "https://cloudflareinsights.com"
+      ],
+      imgSrc: ["'self'", "data:", "blob:"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  } : false
 }));
 
 // CORS configuration
