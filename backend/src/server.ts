@@ -34,7 +34,8 @@ app.use(helmet({
       ],
       connectSrc: [
         "'self'",
-        "https://cloudflareinsights.com"
+        "https://cloudflareinsights.com",
+        "https://api.github.com"
       ],
       imgSrc: ["'self'", "data:", "blob:"],
       styleSrc: ["'self'", "'unsafe-inline'"],
