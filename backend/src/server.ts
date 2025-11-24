@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
+import ipRangeCheck from 'ip-range-check';
 import profilesRouter from './routes/profiles';
 import adminRouter from './routes/admin';
 import logsRouter from './routes/logs';
@@ -19,9 +20,16 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Local development configuration
-// When ALLOW_HTTP_LOCAL=true, allows HTTP access for local development
-// This disables upgrade-insecure-requests CSP directive for local testing
+// When ALLOW_HTTP_LOCAL=true, allows HTTP access for specified local subnets
+// This conditionally disables upgrade-insecure-requests CSP directive based on client IP
 const ALLOW_HTTP_LOCAL = process.env.ALLOW_HTTP_LOCAL === 'true';
+const LOCAL_SUBNETS = process.env.LOCAL_SUBNETS?.split(',').map(s => s.trim()) || [
+  '127.0.0.1',
+  '::1',
+  '10.0.0.0/8',
+  '172.16.0.0/12',
+  '192.168.0.0/16'
+];
 
 // Trust proxy - required when behind reverse proxy (Nginx, Cloudflare, etc.)
 // This allows rate limiting and logging to see real client IPs from X-Forwarded-For header
@@ -30,38 +38,52 @@ if (NODE_ENV === 'production') {
   app.set('trust proxy', true);
 }
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: NODE_ENV === 'production' ? {
-    directives: {
+// IP-based conditional CSP middleware
+// Applies strict HTTPS enforcement for external traffic, relaxed for local subnets
+app.use((req, res, next) => {
+  const clientIP = (req.ip || req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  
+  // Check if request is from local subnet
+  const isLocalAccess = ALLOW_HTTP_LOCAL && ipRangeCheck(clientIP, LOCAL_SUBNETS);
+  
+  if (NODE_ENV === 'production') {
+    const cspDirectives: Record<string, string[]> = {
       defaultSrc: ["'self'"],
-      scriptSrc: [
-        "'self'",
-        "'unsafe-inline'", // Required for Vite/React
-        "https://static.cloudflareinsights.com"
-      ],
-      scriptSrcElem: [
-        "'self'",
-        "https://static.cloudflareinsights.com"
-      ],
-      connectSrc: [
-        "'self'",
-        "https://cloudflareinsights.com",
-        "https://api.github.com"
-      ],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"],
+      scriptSrcElem: ["'self'", "https://static.cloudflareinsights.com"],
+      connectSrc: ["'self'", "https://cloudflareinsights.com", "https://api.github.com"],
       imgSrc: ["'self'", "data:", "blob:"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      // Conditionally add upgradeInsecureRequests based on ALLOW_HTTP_LOCAL flag
-      // When ALLOW_HTTP_LOCAL=true, this directive is omitted to allow HTTP for local development
-      ...(ALLOW_HTTP_LOCAL ? {} : { upgradeInsecureRequests: [] }),
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
       scriptSrcAttr: ["'none'"]
+    };
+    
+    // Only enforce HTTPS upgrade for non-local traffic
+    if (!isLocalAccess) {
+      cspDirectives.upgradeInsecureRequests = [];
     }
-  } : false
+    
+    // Build CSP header string
+    const cspHeader = Object.entries(cspDirectives)
+      .map(([key, value]) => {
+        const directive = key.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+        return `${directive} ${value.join(' ')}`;
+      })
+      .join('; ');
+    
+    res.setHeader('Content-Security-Policy', cspHeader);
+  }
+  
+  next();
+});
+
+// Use helmet for other security headers (without CSP since we're handling it above)
+app.use(helmet({
+  contentSecurityPolicy: false
 }));
 
 // CORS configuration
