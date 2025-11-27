@@ -62,10 +62,19 @@ app.use((req, res, next) => {
   if (NODE_ENV === 'production') {
     const cspDirectives: Record<string, string[]> = {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"],
+      // Script sources - no 'unsafe-inline' (Vite uses external JS files)
+      // 'unsafe-inline' removed for better security; Vite bundles all scripts externally
+      scriptSrc: ["'self'", "https://static.cloudflareinsights.com"],
       scriptSrcElem: ["'self'", "https://static.cloudflareinsights.com"],
       connectSrc: ["'self'", "https://cloudflareinsights.com", "https://api.github.com"],
       imgSrc: ["'self'", "data:", "blob:"],
+      // Style sources - 'unsafe-inline' required for React inline styles (style={{ ... }})
+      // This is mitigated by:
+      // 1. Strict script-src without eval or unsafe-inline
+      // 2. script-src-attr 'none' (prevents inline event handlers)
+      // 3. object-src 'none' (prevents plugin-based XSS)
+      // 4. Input sanitization on all user-provided content
+      // Alternative: Refactor to CSS modules or use CSP nonces (requires SSR/build changes)
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
@@ -95,9 +104,46 @@ app.use((req, res, next) => {
 });
 
 // Use helmet for other security headers (without CSP since we're handling it above)
+// Enable Cross-Origin isolation for Spectre protection
 app.use(helmet({
-  contentSecurityPolicy: false
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: NODE_ENV === 'production',
+  crossOriginOpenerPolicy: { policy: NODE_ENV === 'production' ? 'same-origin' : 'unsafe-none' },
+  crossOriginResourcePolicy: { policy: 'same-origin' }
 }));
+
+// Permissions-Policy header to restrict browser features
+// Deny all features except what we explicitly need
+if (NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const permissionsPolicy = [
+      'accelerometer=()',           // Not needed
+      'ambient-light-sensor=()',    // Not needed
+      'autoplay=()',                // Not needed
+      'battery=()',                 // Not needed
+      'camera=()',                  // Not needed
+      'display-capture=()',         // Not needed
+      'document-domain=()',         // Not needed
+      'encrypted-media=()',         // Not needed
+      'fullscreen=(self)',          // Allow fullscreen for this origin
+      'geolocation=()',             // Not needed
+      'gyroscope=()',               // Not needed
+      'magnetometer=()',            // Not needed
+      'microphone=()',              // Not needed
+      'midi=()',                    // Not needed
+      'payment=()',                 // Not needed
+      'picture-in-picture=()',      // Not needed
+      'publickey-credentials-get=()', // Not needed
+      'screen-wake-lock=()',        // Not needed
+      'sync-xhr=()',                // Not needed (deprecated)
+      'usb=(self)',                 // REQUIRED for WebUSB/ADB functionality
+      'xr-spatial-tracking=()'      // Not needed
+    ].join(', ');
+    
+    res.setHeader('Permissions-Policy', permissionsPolicy);
+    next();
+  });
+}
 
 // CORS configuration
 // In production, allow both the official domain and localhost for development
