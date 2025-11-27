@@ -78,12 +78,14 @@ router.post('/github', async (req, res) => {
   }
 });
 
-// Health check for webhook endpoint
+// Health check for webhook endpoint and configuration status
 router.get('/github', (req, res) => {
+  const secretConfigured = !!process.env.GITHUB_WEBHOOK_SECRET;
   const response: ApiResponse = {
     success: true,
     data: {
-      message: 'GitHub webhook endpoint is ready'
+      message: 'GitHub webhook endpoint is ready',
+      secretConfigured
     }
   };
   res.json(response);
