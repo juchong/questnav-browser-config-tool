@@ -62,15 +62,6 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-interface ApkDownloadState {
-  [commandIndex: number]: {
-    status: 'not_downloaded' | 'downloading' | 'ready' | 'error';
-    hash?: string;
-    size?: number;
-    error?: string;
-  };
-}
-
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [profiles, setProfiles] = useState<ConfigProfile[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -78,7 +69,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState<ConfigProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [apkDownloadStates, setApkDownloadStates] = useState<ApkDownloadState>({});
   const [cachedReleases, setCachedReleases] = useState<Array<{
     id: number;
     release_tag: string;
@@ -172,7 +162,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       }
       setEditingProfile(null);
       setIsCreating(false);
-      setApkDownloadStates({}); // Clear download states
       await loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save profile');
