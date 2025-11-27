@@ -34,9 +34,21 @@ const LOCAL_SUBNETS = process.env.LOCAL_SUBNETS?.split(',').map(s => s.trim()) |
 
 // Trust proxy - required when behind reverse proxy (Nginx, Cloudflare, etc.)
 // This allows rate limiting and logging to see real client IPs from X-Forwarded-For header
-// For Cloudflare ZeroTrust tunnels, trust all proxies
+// Configuration options:
+//   - 'loopback' (default): Trust only localhost proxies (Docker, local nginx)
+//   - '1': Trust first proxy (recommended for Cloudflare, single reverse proxy)
+//   - 'true': Trust all proxies (not recommended due to IP spoofing risk)
+//   - IP addresses: Trust specific proxy IPs
+const trustProxyConfig = process.env.TRUST_PROXY_CONFIG || 'loopback';
+
 if (NODE_ENV === 'production') {
-  app.set('trust proxy', true);
+  if (trustProxyConfig === 'true' || trustProxyConfig === 'false') {
+    app.set('trust proxy', trustProxyConfig === 'true');
+  } else if (!isNaN(Number(trustProxyConfig))) {
+    app.set('trust proxy', Number(trustProxyConfig));
+  } else {
+    app.set('trust proxy', trustProxyConfig);
+  }
 }
 
 // IP-based conditional CSP middleware
@@ -130,12 +142,7 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   // Skip failed requests (don't count them towards the rate limit)
-  skipFailedRequests: false,
-  // Validate proxy configuration
-  validate: {
-    trustProxy: NODE_ENV === 'production',
-    xForwardedForHeader: NODE_ENV === 'production'
-  }
+  skipFailedRequests: false
 });
 app.use('/api/', limiter);
 

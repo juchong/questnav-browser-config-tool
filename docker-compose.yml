@@ -17,6 +17,8 @@ services:
       - CORS_ORIGIN=${CORS_ORIGIN:-https://setup.questnav.gg}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+      # Trust proxy configuration for Cloudflare (1 = trust first proxy only)
+      - TRUST_PROXY_CONFIG=${TRUST_PROXY_CONFIG:-1}
       # Admin credentials - CHANGE THESE IN PRODUCTION!
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
