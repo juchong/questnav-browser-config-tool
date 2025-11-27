@@ -11,7 +11,6 @@ import Logo from './components/Logo';
 import { adbService } from './services/adbService';
 import { api } from './services/apiService';
 import { authService } from './services/authService';
-import { githubService } from './services/githubService';
 import { ConnectionState, ExecutionProgress, ConfigProfile, CommandExecutionResult, AdbCommand } from './types';
 import { collectBrowserInfo } from './utils/browserInfo';
 import './index.css';

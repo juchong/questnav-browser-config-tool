@@ -179,7 +179,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   };
 
-  const handleDownloadApk = async (commandIndex: number) => {
+  const _handleDownloadApk = async (commandIndex: number) => {
     if (!editingProfile) return;
     
     const cmd = editingProfile.commands[commandIndex];
@@ -251,7 +251,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   };
 
-  const getApkStatus = (commandIndex: number, cmd: AdbCommand) => {
+  const _getApkStatus = (commandIndex: number, cmd: AdbCommand) => {
     // First check if we're currently downloading
     const downloadState = apkDownloadStates[commandIndex];
     if (downloadState && downloadState.status !== 'ready') {
