@@ -48,7 +48,7 @@ async function fetchGitHubReleases(repo: string, perPage: number = 30): Promise<
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    return await response.json() as GitHubRelease[];
   } catch (error) {
     console.error('Failed to fetch releases from GitHub:', error);
     throw error;
