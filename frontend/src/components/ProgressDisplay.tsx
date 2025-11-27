@@ -40,6 +40,30 @@ export default function ProgressDisplay({ progress }: ProgressDisplayProps) {
       
       {progress.status === 'running' && (
         <>
+          {/* Prominent warning banner */}
+          <div
+            style={{
+              backgroundColor: 'rgba(251, 191, 36, 0.1)',
+              border: '2px solid #fbbf24',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem'
+            }}
+          >
+            <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>⚠️</div>
+            <div>
+              <div style={{ fontWeight: 'bold', color: '#f59e0b', marginBottom: '0.25rem' }}>
+                Configuration in Progress
+              </div>
+              <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                Please don't close this page or disconnect your device until complete
+              </div>
+            </div>
+          </div>
+
           <div
             style={{
               width: '100%',

@@ -68,6 +68,37 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Warn user before closing/navigating away during configuration
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isExecuting) {
+        // Modern browsers require returnValue to be set
+        e.preventDefault();
+        e.returnValue = '';
+        // Some browsers show this message, others show a generic one
+        return 'Configuration is in progress. Are you sure you want to leave? This may interrupt the process.';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isExecuting]);
+
+  // Update page title during execution to remind user not to close
+  useEffect(() => {
+    const originalTitle = document.title;
+    
+    if (isExecuting) {
+      document.title = '⚠️ Configuration in Progress - QuestNav Setup';
+    } else {
+      document.title = originalTitle;
+    }
+
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [isExecuting]);
+
   const loadProfile = async () => {
     try {
       const data = await api.getProfiles();
