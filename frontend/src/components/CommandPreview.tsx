@@ -16,11 +16,19 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
   // Check if profile already has an app_install command
   const hasAppInstall = commands.some(cmd => cmd.category === 'app_install');
   
-  // Only add QuestNav to count if user opted in AND profile doesn't already have app_install
-  const shouldShowQuestNav = includeQuestNav && !hasAppInstall;
+  // Calculate total commands based on includeQuestNav state
+  let totalCommands: number;
   
-  // Calculate total including QuestNav if applicable
-  const totalCommands = shouldShowQuestNav ? visibleCommands.length + 1 : visibleCommands.length;
+  if (includeQuestNav) {
+    // User wants to install: count all visible commands + QuestNav if not already present
+    totalCommands = hasAppInstall ? visibleCommands.length : visibleCommands.length + 1;
+  } else {
+    // User doesn't want to install: exclude app_install commands from count
+    totalCommands = visibleCommands.filter(cmd => cmd.category !== 'app_install').length;
+  }
+  
+  // Only show QuestNav in the table if user opted in AND profile doesn't already have app_install
+  const shouldShowQuestNav = includeQuestNav && !hasAppInstall;
 
   const getCategoryLabel = (category: string): string => {
     const labels: Record<string, string> = {
@@ -29,7 +37,7 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
       'display': 'Display',
       'privacy': 'Privacy',
       'system': 'System',
-      'diagnostic': 'Diagnostic',
+      'diagnostic': 'Dump Tracking',
       'app_install': 'App Install'
     };
     return labels[category] || category;
@@ -165,13 +173,60 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
                 </tr>
               </thead>
               <tbody>
-                {/* QuestNav APK if included (and profile doesn't already have app_install) */}
+                {/* Regular commands */}
+                {visibleCommands
+                  .filter(cmd => includeQuestNav || cmd.category !== 'app_install')
+                  .map((cmd, idx) => {
+                    // Calculate proper index considering filtered commands
+                    const displayIndex = idx + 1;
+                    const isLastCommand = idx === visibleCommands.filter(c => includeQuestNav || c.category !== 'app_install').length - 1;
+                    
+                    return (
+                      <tr 
+                        key={idx}
+                        style={{
+                          borderBottom: (!isLastCommand || shouldShowQuestNav) ? '1px solid rgba(128, 128, 128, 0.1)' : 'none'
+                        }}
+                      >
+                        <td style={{ padding: '0.75rem', opacity: 0.7 }}>
+                          {displayIndex}
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '500',
+                            backgroundColor: getCategoryColor(cmd.category) + '20',
+                            color: getCategoryColor(cmd.category)
+                          }}>
+                            {getCategoryLabel(cmd.category)}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          {cmd.description}
+                        </td>
+                        <td style={{ 
+                          padding: '0.75rem',
+                          fontFamily: 'monospace',
+                          fontSize: '0.8rem',
+                          color: 'var(--color-muted)',
+                          wordBreak: 'break-all'
+                        }}>
+                          {cmd.command}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                {/* QuestNav APK if included (and profile doesn't already have app_install) - show at END */}
                 {shouldShowQuestNav && questNavInfo && (
                   <tr style={{
-                    borderBottom: '1px solid rgba(128, 128, 128, 0.1)'
+                    borderBottom: 'none'
                   }}>
                     <td style={{ padding: '0.75rem', opacity: 0.7 }}>
-                      1
+                      {visibleCommands.filter(cmd => includeQuestNav || cmd.category !== 'app_install').length + 1}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <span style={{
@@ -187,7 +242,7 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
                       </span>
                     </td>
                     <td style={{ padding: '0.75rem' }}>
-                      Install {questNavInfo.name} ({questNavInfo.version})
+                      Install QuestNav APK
                     </td>
                     <td style={{ 
                       padding: '0.75rem',
@@ -200,45 +255,6 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
                     </td>
                   </tr>
                 )}
-
-                {/* Regular commands */}
-                {visibleCommands.map((cmd, idx) => (
-                  <tr 
-                    key={idx}
-                    style={{
-                      borderBottom: idx < visibleCommands.length - 1 ? '1px solid rgba(128, 128, 128, 0.1)' : 'none'
-                    }}
-                  >
-                    <td style={{ padding: '0.75rem', opacity: 0.7 }}>
-                      {shouldShowQuestNav ? idx + 2 : idx + 1}
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: '500',
-                        backgroundColor: getCategoryColor(cmd.category) + '20',
-                        color: getCategoryColor(cmd.category)
-                      }}>
-                        {getCategoryLabel(cmd.category)}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      {cmd.description}
-                    </td>
-                    <td style={{ 
-                      padding: '0.75rem',
-                      fontFamily: 'monospace',
-                      fontSize: '0.8rem',
-                      color: 'var(--color-muted)',
-                      wordBreak: 'break-all'
-                    }}>
-                      {cmd.command}
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>

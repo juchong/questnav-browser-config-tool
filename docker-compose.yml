@@ -14,13 +14,18 @@ services:
       - PORT=3000
       - DATABASE_PATH=/app/data/questnav.db
       - APK_STORAGE_DIR=/app/data/apks
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://setup.questnav.gg}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
       # Admin credentials - CHANGE THESE IN PRODUCTION!
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
       - JWT_SECRET=${JWT_SECRET:-changeme}
+      # GitHub webhook configuration (optional)
+      - QUESTNAV_REPO=${QUESTNAV_REPO:-QuestNav/QuestNav}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      # APK size limit (500MB default)
+      - MAX_APK_SIZE_BYTES=${MAX_APK_SIZE_BYTES:-524288000}
     volumes:
       - questnav-data:/app/data
     healthcheck:

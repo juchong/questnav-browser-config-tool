@@ -7,6 +7,10 @@ param(
     [string]$Command = 'start'
 )
 
+# Get the project root directory (parent of scripts folder)
+$ScriptDir = Split-Path -Parent $PSCommandPath
+$ProjectRoot = Split-Path -Parent $ScriptDir
+
 # PID file locations
 $PidDir = $env:TEMP
 $BackendPidFile = Join-Path $PidDir "questnav-backend.pid"
@@ -65,15 +69,20 @@ function Start-DevServers {
     }
 
     # Check if node_modules exist
-    if (-not (Test-Path "backend\node_modules")) {
+    $BackendModules = Join-Path $ProjectRoot "backend\node_modules"
+    $FrontendModules = Join-Path $ProjectRoot "frontend\node_modules"
+    
+    if (-not (Test-Path $BackendModules)) {
         Write-Host "X Backend dependencies not installed!" -ForegroundColor Red
-        Write-Host "Please run setup.bat first" -ForegroundColor Red
+        Write-Host "  Path checked: $BackendModules" -ForegroundColor Gray
+        Write-Host "  Run 'npm install' in the backend directory first" -ForegroundColor Red
         exit 1
     }
 
-    if (-not (Test-Path "frontend\node_modules")) {
+    if (-not (Test-Path $FrontendModules)) {
         Write-Host "X Frontend dependencies not installed!" -ForegroundColor Red
-        Write-Host "Please run setup.bat first" -ForegroundColor Red
+        Write-Host "  Path checked: $FrontendModules" -ForegroundColor Gray
+        Write-Host "  Run 'npm install' in the frontend directory first" -ForegroundColor Red
         exit 1
     }
 
@@ -81,7 +90,8 @@ function Start-DevServers {
     Write-Host ""
 
     # Start backend
-    Push-Location backend
+    $BackendDir = Join-Path $ProjectRoot "backend"
+    Push-Location $BackendDir
     $backendProcess = Start-Process -FilePath "npm" -ArgumentList "run", "dev" `
         -RedirectStandardOutput $BackendLogFile -RedirectStandardError $BackendErrorLogFile `
         -WindowStyle Hidden -PassThru
@@ -102,7 +112,8 @@ function Start-DevServers {
     Start-Sleep -Seconds 3
 
     # Start frontend
-    Push-Location frontend
+    $FrontendDir = Join-Path $ProjectRoot "frontend"
+    Push-Location $FrontendDir
     $frontendProcess = Start-Process -FilePath "npm" -ArgumentList "run", "dev" `
         -RedirectStandardOutput $FrontendLogFile -RedirectStandardError $FrontendErrorLogFile `
         -WindowStyle Hidden -PassThru

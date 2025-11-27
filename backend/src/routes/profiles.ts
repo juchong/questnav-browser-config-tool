@@ -16,6 +16,11 @@ router.get('/', (req, res) => {
       return res.status(404).json(response);
     }
     
+    // Debug: Log the commands being sent
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('[DEBUG] Active profile commands:', JSON.stringify(activeProfile.commands, null, 2));
+    }
+    
     // Return as array for backward compatibility with frontend
     const response: ApiResponse<ConfigProfile[]> = {
       success: true,

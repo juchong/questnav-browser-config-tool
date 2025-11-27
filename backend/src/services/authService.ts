@@ -1,7 +1,20 @@
 import jwt, { Secret } from 'jsonwebtoken';
 import { CustomJwtPayload } from '../models/types';
 
-const JWT_SECRET: Secret = process.env.JWT_SECRET || 'default-secret-change-in-production';
+const JWT_SECRET: Secret = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL: JWT_SECRET must be set in production environment');
+    }
+    console.warn('WARNING: Using default JWT_SECRET in development. Set JWT_SECRET in production!');
+    return 'default-secret-change-in-production';
+  }
+  if (secret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long');
+  }
+  return secret;
+})();
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '7d');
 
 export const authService = {

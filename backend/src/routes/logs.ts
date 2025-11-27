@@ -1,13 +1,33 @@
 import express from 'express';
-import { logDb } from '../services/database';
+import rateLimit from 'express-rate-limit';
+import { logDb, profileDb } from '../services/database';
 import { requireAuth } from '../middleware/auth';
 import { ExecutionLog, ApiResponse } from '../models/types';
 import { processCommandResults } from '../services/commandProcessor';
+import { 
+  sanitizeString, 
+  sanitizeDeviceSerial, 
+  sanitizeDeviceName,
+  sanitizeBrowserFingerprint,
+  sanitizeErrorMessage,
+  validateJsonSize,
+  validateInteger
+} from '../utils/sanitization';
 
 const router = express.Router();
 
-// Create execution log (called from frontend)
-router.post('/', (req, res) => {
+// Stricter rate limiting for log creation (public endpoint)
+// More lenient in development for testing
+const logCreationLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 100 : 5, // 100 in dev, 5 in prod
+  message: { success: false, error: 'Too many log submissions. Please wait a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Create execution log (public endpoint - called from frontend)
+router.post('/', logCreationLimiter, (req, res) => {
   try {
     const { 
       profile_id, 
@@ -37,6 +57,7 @@ router.post('/', (req, res) => {
       browser_fingerprint
     } = req.body;
 
+    // Validate profile_id
     if (!profile_id || typeof profile_id !== 'number') {
       const response: ApiResponse = {
         success: false,
@@ -45,6 +66,7 @@ router.post('/', (req, res) => {
       return res.status(400).json(response);
     }
 
+    // Validate status
     if (!status || !['success', 'failure', 'partial'].includes(status)) {
       const response: ApiResponse = {
         success: false,
@@ -53,51 +75,87 @@ router.post('/', (req, res) => {
       return res.status(400).json(response);
     }
 
-    // Extract client metadata from request
-    const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    // Validate command counts if provided
+    const validatedTotalCommands = total_commands !== undefined ? validateInteger(total_commands, 0, 1000) : undefined;
+    const validatedSuccessful = successful_commands !== undefined ? validateInteger(successful_commands, 0, 1000) : undefined;
+    const validatedFailed = failed_commands !== undefined ? validateInteger(failed_commands, 0, 1000) : undefined;
+
+    // Validate command_results size (prevent huge JSON payloads)
+    if (command_results && !validateJsonSize(command_results, 500000)) { // 500KB max
+      const response: ApiResponse = {
+        success: false,
+        error: 'Command results payload too large'
+      };
+      return res.status(400).json(response);
+    }
+
+    // Extract and sanitize client metadata from request
+    const clientIp = sanitizeString((req.ip || req.connection.remoteAddress || 'unknown'), 100);
+    const userAgent = sanitizeString((req.headers['user-agent'] || 'unknown'), 500);
 
     // Calculate execution duration if timestamps provided
     let executionDurationMs: number | undefined;
     if (execution_start_timestamp && execution_end_timestamp) {
-      const startTime = new Date(execution_start_timestamp).getTime();
-      const endTime = new Date(execution_end_timestamp).getTime();
-      executionDurationMs = endTime - startTime;
+      try {
+        const startTime = new Date(execution_start_timestamp).getTime();
+        const endTime = new Date(execution_end_timestamp).getTime();
+        if (!isNaN(startTime) && !isNaN(endTime) && endTime >= startTime) {
+          executionDurationMs = endTime - startTime;
+        }
+      } catch (e) {
+        // Invalid timestamps, skip duration calculation
+      }
     }
 
-    // Process command results (applies special handling for diagnostic commands)
+    // Process and sanitize command results
     const processedResults = command_results ? processCommandResults(command_results) : undefined;
 
-    // Build log entry with all available data
+    // Sanitize all text inputs
+    const sanitizedErrorMessage = error_message ? sanitizeErrorMessage(error_message) : undefined;
+    const sanitizedDeviceSerial = device_serial ? sanitizeDeviceSerial(device_serial) : undefined;
+    const sanitizedDeviceName = device_name ? sanitizeDeviceName(device_name) : undefined;
+    const sanitizedBrowserName = browser_name ? sanitizeString(browser_name, 100) : undefined;
+    const sanitizedBrowserVersion = browser_version ? sanitizeString(browser_version, 50) : undefined;
+    const sanitizedBrowserEngine = browser_engine ? sanitizeString(browser_engine, 100) : undefined;
+    const sanitizedOsName = os_name ? sanitizeString(os_name, 100) : undefined;
+    const sanitizedOsVersion = os_version ? sanitizeString(os_version, 50) : undefined;
+    const sanitizedPlatform = platform ? sanitizeString(platform, 100) : undefined;
+    const sanitizedScreenResolution = screen_resolution ? sanitizeString(screen_resolution, 50) : undefined;
+    const sanitizedViewportSize = viewport_size ? sanitizeString(viewport_size, 50) : undefined;
+    const sanitizedTimezone = timezone ? sanitizeString(timezone, 100) : undefined;
+    const sanitizedLanguage = language ? sanitizeString(language, 50) : undefined;
+    const sanitizedFingerprint = browser_fingerprint ? sanitizeBrowserFingerprint(browser_fingerprint) : undefined;
+
+    // Build log entry with sanitized data
     const logEntry: ExecutionLog = {
       profile_id,
       status,
-      error_message,
+      error_message: sanitizedErrorMessage,
       client_ip: clientIp,
       user_agent: userAgent,
-      device_serial,
-      device_name,
+      device_serial: sanitizedDeviceSerial,
+      device_name: sanitizedDeviceName,
       connection_timestamp,
       execution_start_timestamp,
       execution_end_timestamp,
       execution_duration_ms: executionDurationMs,
-      command_results: processedResults, // Use processed results
-      total_commands,
-      successful_commands,
-      failed_commands,
-      // Browser information
-      browser_name,
-      browser_version,
-      browser_engine,
-      os_name,
-      os_version,
-      platform,
-      screen_resolution,
-      viewport_size,
-      timezone,
-      language,
+      command_results: processedResults,
+      total_commands: validatedTotalCommands ?? undefined,
+      successful_commands: validatedSuccessful ?? undefined,
+      failed_commands: validatedFailed ?? undefined,
+      // Browser information (sanitized)
+      browser_name: sanitizedBrowserName,
+      browser_version: sanitizedBrowserVersion,
+      browser_engine: sanitizedBrowserEngine,
+      os_name: sanitizedOsName,
+      os_version: sanitizedOsVersion,
+      platform: sanitizedPlatform,
+      screen_resolution: sanitizedScreenResolution,
+      viewport_size: sanitizedViewportSize,
+      timezone: sanitizedTimezone,
+      language: sanitizedLanguage,
       webusb_supported,
-      browser_fingerprint
+      browser_fingerprint: sanitizedFingerprint
     };
 
     const log = logDb.create(logEntry);

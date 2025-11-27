@@ -11,6 +11,7 @@ import adminRouter from './routes/admin';
 import logsRouter from './routes/logs';
 import authRouter from './routes/auth';
 import apksRouter from './routes/apks';
+import webhooksRouter from './routes/webhooks';
 
 // Load environment variables
 dotenv.config();
@@ -87,17 +88,45 @@ app.use(helmet({
 }));
 
 // CORS configuration
+// In production, allow both the official domain and localhost for development
+const allowedOrigins = [
+  'https://setup.questnav.gg',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // In development, allow configured origin or localhost
+    if (NODE_ENV === 'development') {
+      const devOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+      if (origin === devOrigin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+    }
+    
+    // In production, check whitelist
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true, // Allow cookies
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 
 // Rate limiting
-// For Cloudflare ZeroTrust tunnels: validate that request comes through Cloudflare
+// More lenient in development to account for React Strict Mode double-mounting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  max: NODE_ENV === 'development' ? 1000 : parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // Higher limit in dev
   standardHeaders: true,
   legacyHeaders: false,
   // Skip failed requests (don't count them towards the rate limit)
@@ -122,6 +151,7 @@ app.use('/api/profiles', profilesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/apks', apksRouter);
+app.use('/api/webhooks', webhooksRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -141,9 +171,13 @@ if (NODE_ENV === 'production') {
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
+  
+  // Don't leak error details in production
+  const errorMessage = NODE_ENV === 'development' ? err.message : 'Internal server error';
+  
   res.status(500).json({
     success: false,
-    error: NODE_ENV === 'development' ? err.message : 'Internal server error'
+    error: errorMessage
   });
 });
 

@@ -40,6 +40,7 @@ function App() {
   });
   const [isExecuting, setIsExecuting] = useState(false);
   const [installQuestNav, setInstallQuestNav] = useState(true); // State for QuestNav installation
+  const [selectedApkHash, setSelectedApkHash] = useState<string>(''); // State for selected APK version
   const [profile, setProfile] = useState<ConfigProfile | null>(null); // State for loaded profile
   const [showConfetti, setShowConfetti] = useState(false); // State for confetti celebration
   const [windowDimensions, setWindowDimensions] = useState({ 
@@ -50,12 +51,10 @@ function App() {
   // Collect browser info once on mount
   const [browserInfo] = useState(() => collectBrowserInfo());
 
-  // Load profile when connected
+  // Load profile on mount (not dependent on connection)
   useEffect(() => {
-    if (connectionState.connected && !profile) {
-      loadProfile();
-    }
-  }, [connectionState.connected]);
+    loadProfile();
+  }, []);
 
   // Update window dimensions on resize for confetti
   useEffect(() => {
@@ -75,6 +74,18 @@ function App() {
       const data = await api.getProfiles();
       if (data.length > 0) {
         setProfile(data[0]);
+        if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+          console.log('[DEBUG] Loaded profile:', data[0].name);
+          console.log('[DEBUG] Total commands:', data[0].commands.length);
+          // Log command 21 specifically (index 20)
+          if (data[0].commands[20]) {
+            console.log('[DEBUG] Command 21 details:', {
+              description: data[0].commands[20].description,
+              command: data[0].commands[20].command,
+              category: data[0].commands[20].category
+            });
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -166,6 +177,11 @@ function App() {
   };
 
   const handleApplyConfiguration = async (profile: ConfigProfile, installQuestNav: boolean = false) => {
+    if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+      console.log('[DEBUG] handleApplyConfiguration called');
+      console.log('[DEBUG] connectionState:', connectionState);
+    }
+    
     if (!connectionState.connected) {
       alert('Please connect to your Quest device first.');
       return;
@@ -174,48 +190,23 @@ function App() {
     // Build the full command list including optional QuestNav APK
     let allCommands: AdbCommand[] = [...profile.commands];
     
-    // If user opted in for QuestNav, add it at the beginning (unless admin already added it)
+    // If user opted in for QuestNav, add it at the end (unless admin already added it)
     if (installQuestNav) {
       const hasQuestNavInstall = profile.commands.some(cmd => cmd.category === 'app_install');
-      if (!hasQuestNavInstall) {
-        // Fetch latest QuestNav APK info
-        const apkInfo = await githubService.getLatestApkUrl();
-        if (apkInfo) {
-          // Request backend to cache the APK and get hash
-          try {
-            const cacheResponse = await fetch('/api/apks/cache', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                apk_url: apkInfo.url,
-                apk_name: apkInfo.name
-              })
-            });
-            
-            const cacheData = await cacheResponse.json();
-            
-            if (cacheData.success && cacheData.data.hash) {
-              // Insert QuestNav installation at the start with hash
-              allCommands.unshift({
-                command: 'install_apk',
-                description: `Install ${apkInfo.name} (${apkInfo.version})`,
-                category: 'app_install',
-                apk_url: apkInfo.url,
-                apk_name: apkInfo.name,
-                apk_hash: cacheData.data.hash
-              });
-            } else {
-              console.error('Failed to cache APK:', cacheData.error);
-              alert(`Failed to prepare QuestNav APK: ${cacheData.error}`);
-              return;
-            }
-          } catch (error) {
-            console.error('Failed to cache APK:', error);
-            alert('Failed to prepare QuestNav APK. Please try again.');
-            return;
-          }
-        }
+      if (!hasQuestNavInstall && selectedApkHash) {
+        // Use the selected cached APK - add at the END
+        allCommands.push({
+          command: 'install_apk',
+          description: `Install QuestNav APK`,
+          category: 'app_install',
+          apk_url: `/api/apks/${selectedApkHash}`,
+          apk_name: 'QuestNav.apk',
+          apk_hash: selectedApkHash
+        });
       }
+    } else {
+      // If user opted out, filter out any app_install commands from the profile
+      allCommands = allCommands.filter(cmd => cmd.category !== 'app_install');
     }
 
     if (allCommands.length === 0) {
@@ -239,11 +230,17 @@ function App() {
     const detailedResults: CommandExecutionResult[] = [];
 
     try {
+      if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+        console.log('[DEBUG] Starting command execution, total commands:', allCommands.length);
+      }
       // Execute commands sequentially, handling app_install specially
       let currentIndex = 0;
       let visibleIndex = 0; // Track only visible commands for progress
       
       for (const cmd of allCommands) {
+        if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+          console.log(`[DEBUG] About to execute command ${currentIndex + 1}:`, cmd.description);
+        }
         // Only update progress for visible commands
         if (!cmd.is_hidden) {
           setProgress({
@@ -273,7 +270,9 @@ function App() {
               }
             }
           );
-          // console.log('APK install result for logging:', result);
+          if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+            console.log('[APK DEBUG] APK install result for logging:', result);
+          }
         } else {
           // Regular command execution
           result = await adbService.executeCommand(cmd.command);
@@ -290,12 +289,14 @@ function App() {
           duration_ms: result.duration_ms || 0
         });
         
-        // console.log(`Command ${currentIndex + 1}/${allCommands.length} result:`, {
-        //   description: cmd.description,
-        //   success: result.success,
-        //   output: result.output?.substring(0, 100),
-        //   error: result.error?.substring(0, 100)
-        // });
+        if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+          console.log(`[DEBUG] Command ${currentIndex + 1}/${allCommands.length} result:`, {
+            description: cmd.description,
+            success: result.success,
+            output: result.output?.substring(0, 100),
+            error: result.error?.substring(0, 100)
+          });
+        }
 
         currentIndex++;
         // Only increment visible index for non-hidden commands
@@ -630,6 +631,8 @@ function App() {
             onCancelConnection={handleCancelConnection}
             installQuestNav={installQuestNav}
             onInstallQuestNavChange={setInstallQuestNav}
+            selectedApkHash={selectedApkHash}
+            onSelectedApkHashChange={setSelectedApkHash}
             onApplyConfiguration={connectionState.connected && profile ? () => handleApplyConfiguration(profile, installQuestNav) : undefined}
             profile={profile}
           />

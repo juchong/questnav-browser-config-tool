@@ -12,8 +12,18 @@ interface ConnectionStatusProps {
   onCancelConnection?: () => void;
   installQuestNav?: boolean;
   onInstallQuestNavChange?: (checked: boolean) => void;
+  selectedApkHash?: string;
+  onSelectedApkHashChange?: (hash: string) => void;
   onApplyConfiguration?: () => void;
   profile?: ConfigProfile | null;
+}
+
+interface CachedRelease {
+  release_tag: string;
+  apk_name: string;
+  apk_hash: string;
+  apk_size: number;
+  published_at: string;
 }
 
 export default function ConnectionStatus({ 
@@ -25,19 +35,41 @@ export default function ConnectionStatus({
   onCancelConnection,
   installQuestNav = true,
   onInstallQuestNavChange,
+  selectedApkHash,
+  onSelectedApkHashChange,
   onApplyConfiguration,
   profile
 }: ConnectionStatusProps) {
   const [questNavInfo, setQuestNavInfo] = useState<{ version: string; name: string } | null>(null);
+  const [cachedReleases, setCachedReleases] = useState<CachedRelease[]>([]);
 
   useEffect(() => {
     loadQuestNavInfo();
+    loadCachedReleases();
   }, []);
 
   const loadQuestNavInfo = async () => {
     const info = await githubService.getLatestApkUrl();
     if (info) {
       setQuestNavInfo({ version: info.version, name: info.name });
+    }
+  };
+
+  const loadCachedReleases = async () => {
+    try {
+      const response = await fetch('/api/apks/releases/available');
+      const data = await response.json();
+      if (data.success) {
+        // Data is already sorted by published date (newest first)
+        setCachedReleases(data.data);
+        
+        // Auto-select the newest release if none selected
+        if (data.data.length > 0 && !selectedApkHash && onSelectedApkHashChange) {
+          onSelectedApkHashChange(data.data[0].apk_hash);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load cached releases:', err);
     }
   };
 
@@ -87,8 +119,8 @@ export default function ConnectionStatus({
         </div>
       )}
 
-      {/* QuestNav APK Installation Toggle - show when connected */}
-      {state.connected && onInstallQuestNavChange && profile && (
+      {/* Profile Information - show always when profile is available */}
+      {profile && (
         <>
           {/* Profile Information */}
           <div style={{ marginTop: '1.5rem' }}>
@@ -100,55 +132,125 @@ export default function ConnectionStatus({
             </p>
           </div>
 
-          <div className="bg-success-subtle" style={{ 
-            marginTop: '1rem', 
-            padding: '1rem', 
-            borderRadius: '6px',
-            border: '1px solid rgba(76, 175, 80, 0.3)'
-          }}>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.75rem',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              userSelect: 'none',
-              opacity: disabled ? 0.6 : 1
+          {/* QuestNav APK Installation Toggle - show only when connected */}
+          {state.connected && onInstallQuestNavChange && onSelectedApkHashChange && (
+            <div className="bg-success-subtle" style={{ 
+              marginTop: '1rem', 
+              padding: '1rem', 
+              borderRadius: '6px',
+              border: '1px solid rgba(76, 175, 80, 0.3)'
             }}>
-              <input
-                type="checkbox"
-                checked={installQuestNav}
-                onChange={(e) => onInstallQuestNavChange(e.target.checked)}
-                disabled={disabled}
-                style={{
-                  width: '1.25rem',
-                  height: '1.25rem',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  accentColor: 'var(--color-success)'
-                }}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                  📦 Install QuestNav APK
-                  {questNavInfo && (
-                    <span style={{ 
-                      marginLeft: '0.5rem', 
-                      fontSize: '0.75rem', 
-                      fontWeight: 'normal', 
-                      opacity: 0.7 
-                    }}>
-                      ({questNavInfo.version})
-                    </span>
-                  )}
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                userSelect: 'none',
+                opacity: disabled ? 0.6 : 1,
+                marginBottom: installQuestNav ? '0.75rem' : 0
+              }}>
+                <input
+                  type="checkbox"
+                  checked={installQuestNav}
+                  onChange={(e) => onInstallQuestNavChange(e.target.checked)}
+                  disabled={disabled}
+                  style={{
+                    width: '1.25rem',
+                    height: '1.25rem',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    accentColor: 'var(--color-success)'
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold' }}>
+                    📦 Install QuestNav APK
+                  </div>
+                  <div style={{ fontSize: '0.875rem', opacity: 0.8, marginTop: '0.25rem' }}>
+                    {installQuestNav ? 'Select version to install' : 'Enable to install the QuestNav app'}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
-                  Automatically install the latest released version of the QuestNav app
-                </div>
-              </div>
-            </label>
-          </div>
+              </label>
 
-          {/* Apply Configuration Button */}
-          {onApplyConfiguration && (
+              {/* Version Selector - show when checkbox is checked */}
+              {installQuestNav && (
+                <>
+                  {cachedReleases.length > 0 ? (
+                    <>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                        Select Version:
+                      </label>
+                      <select
+                        value={selectedApkHash || ''}
+                        onChange={(e) => onSelectedApkHashChange(e.target.value)}
+                        disabled={disabled}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem',
+                          fontSize: '0.9rem',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(76, 175, 80, 0.5)',
+                          backgroundColor: 'var(--surface-color)',
+                          color: 'inherit',
+                          cursor: disabled ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {cachedReleases.map((release, index) => (
+                          <option key={release.apk_hash} value={release.apk_hash}>
+                            {release.release_tag}
+                            {index === 0 && ' ⭐ (Newest)'}
+                            {' - '}
+                            {new Date(release.published_at).toLocaleDateString()}
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedApkHash && (
+                        <div style={{ 
+                          marginTop: '0.75rem', 
+                          padding: '0.5rem', 
+                          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          opacity: 0.9
+                        }}>
+                          <div style={{ marginBottom: '0.25rem' }}>
+                            <strong>Selected:</strong> {cachedReleases.find(r => r.apk_hash === selectedApkHash)?.release_tag}
+                            {cachedReleases[0]?.apk_hash === selectedApkHash && ' ⭐'}
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '0.7rem', opacity: 0.8 }}>
+                            Hash: {selectedApkHash.substring(0, 12)}...
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{
+                      padding: '0.75rem',
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '4px',
+                      fontSize: '0.875rem'
+                    }}>
+                      <strong>⚠️ No APK versions available</strong>
+                      <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>
+                        Contact your administrator to download QuestNav releases.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Command Preview - expandable section */}
+          <CommandPreview 
+            commands={profile.commands}
+            includeQuestNav={state.connected && installQuestNav}
+            questNavInfo={questNavInfo}
+          />
+
+          {/* Apply Configuration Button - show only when connected */}
+          {state.connected && onApplyConfiguration && (
             <button
               onClick={onApplyConfiguration}
               disabled={disabled}
@@ -163,13 +265,6 @@ export default function ConnectionStatus({
               Apply Configuration
             </button>
           )}
-
-          {/* Command Preview - expandable section below button */}
-          <CommandPreview 
-            commands={profile.commands}
-            includeQuestNav={installQuestNav}
-            questNavInfo={questNavInfo}
-          />
         </>
       )}
     </div>

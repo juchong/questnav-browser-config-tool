@@ -48,8 +48,26 @@ function initializeDatabase() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS apk_releases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      release_tag TEXT NOT NULL UNIQUE,
+      release_name TEXT NOT NULL,
+      apk_name TEXT NOT NULL,
+      apk_url TEXT NOT NULL,
+      apk_hash TEXT,
+      apk_size INTEGER,
+      download_status TEXT DEFAULT 'pending',
+      download_error TEXT,
+      published_at DATETIME,
+      detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      downloaded_at DATETIME,
+      source TEXT DEFAULT 'webhook'
+    );
+
     CREATE INDEX IF NOT EXISTS idx_logs_profile_id ON execution_logs(profile_id);
     CREATE INDEX IF NOT EXISTS idx_logs_executed_at ON execution_logs(executed_at);
+    CREATE INDEX IF NOT EXISTS idx_releases_tag ON apk_releases(release_tag);
+    CREATE INDEX IF NOT EXISTS idx_releases_status ON apk_releases(download_status);
   `);
 
   // Migrate existing database: add is_active column if it doesn't exist
@@ -577,6 +595,117 @@ export const adminUserDb = {
     const user = this.getByUsername(username);
     if (!user) return false;
     return bcrypt.compare(password, user.password_hash);
+  }
+};
+
+// APK Release operations
+export interface ApkRelease {
+  id?: number;
+  release_tag: string;
+  release_name: string;
+  apk_name: string;
+  apk_url: string;
+  apk_hash?: string;
+  apk_size?: number;
+  download_status: 'pending' | 'downloading' | 'completed' | 'failed';
+  download_error?: string;
+  published_at?: string;
+  detected_at?: string;
+  downloaded_at?: string;
+  source: 'webhook' | 'manual' | 'poll';
+}
+
+export const apkReleaseDb = {
+  getAll(): ApkRelease[] {
+    return db.prepare('SELECT * FROM apk_releases ORDER BY published_at DESC').all() as ApkRelease[];
+  },
+
+  getById(id: number): ApkRelease | undefined {
+    return db.prepare('SELECT * FROM apk_releases WHERE id = ?').get(id) as ApkRelease | undefined;
+  },
+
+  getByTag(tag: string): ApkRelease | undefined {
+    return db.prepare('SELECT * FROM apk_releases WHERE release_tag = ?').get(tag) as ApkRelease | undefined;
+  },
+
+  getLatestCompleted(): ApkRelease | undefined {
+    return db.prepare(`
+      SELECT * FROM apk_releases 
+      WHERE download_status = 'completed' 
+      ORDER BY published_at DESC 
+      LIMIT 1
+    `).get() as ApkRelease | undefined;
+  },
+
+  create(release: Omit<ApkRelease, 'id' | 'detected_at'>): ApkRelease {
+    const stmt = db.prepare(`
+      INSERT INTO apk_releases (
+        release_tag, release_name, apk_name, apk_url, 
+        apk_hash, apk_size, download_status, download_error,
+        published_at, downloaded_at, source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    const result = stmt.run(
+      release.release_tag,
+      release.release_name,
+      release.apk_name,
+      release.apk_url,
+      release.apk_hash || null,
+      release.apk_size || null,
+      release.download_status,
+      release.download_error || null,
+      release.published_at || null,
+      release.downloaded_at || null,
+      release.source
+    );
+    
+    return this.getById(result.lastInsertRowid as number)!;
+  },
+
+  update(id: number, updates: Partial<ApkRelease>): ApkRelease | undefined {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.download_status !== undefined) {
+      fields.push('download_status = ?');
+      values.push(updates.download_status);
+    }
+    if (updates.apk_hash !== undefined) {
+      fields.push('apk_hash = ?');
+      values.push(updates.apk_hash);
+    }
+    if (updates.apk_size !== undefined) {
+      fields.push('apk_size = ?');
+      values.push(updates.apk_size);
+    }
+    if (updates.download_error !== undefined) {
+      fields.push('download_error = ?');
+      values.push(updates.download_error);
+    }
+    if (updates.downloaded_at !== undefined) {
+      fields.push('downloaded_at = ?');
+      values.push(updates.downloaded_at);
+    }
+
+    if (fields.length === 0) return this.getById(id);
+
+    values.push(id);
+    const stmt = db.prepare(`UPDATE apk_releases SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...values);
+    return this.getById(id);
+  },
+
+  delete(id: number): boolean {
+    const stmt = db.prepare('DELETE FROM apk_releases WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
+  },
+
+  exists(tag: string): boolean {
+    const result = db.prepare('SELECT COUNT(*) as count FROM apk_releases WHERE release_tag = ?')
+      .get(tag) as { count: number };
+    return result.count > 0;
   }
 };
 

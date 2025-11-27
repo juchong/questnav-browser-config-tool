@@ -13,6 +13,9 @@ import { URL } from 'url';
 // APK storage directory
 const APK_DIR = process.env.APK_STORAGE_DIR || './data/apks';
 
+// Maximum APK file size (500MB default, configurable via env)
+const MAX_APK_SIZE = parseInt(process.env.MAX_APK_SIZE_BYTES || '524288000'); // 500MB in bytes
+
 // Ensure APK directory exists
 if (!fs.existsSync(APK_DIR)) {
   fs.mkdirSync(APK_DIR, { recursive: true });
@@ -87,6 +90,7 @@ export async function downloadAndCacheApk(apkUrl: string, apkName: string): Prom
 
 /**
  * Download file from URL and return as Buffer
+ * Enforces size limits to prevent abuse
  */
 function downloadFile(url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -94,6 +98,7 @@ function downloadFile(url: string): Promise<Buffer> {
     const protocol = parsedUrl.protocol === 'https:' ? https : http;
     
     const chunks: Buffer[] = [];
+    let totalSize = 0;
     
     const request = protocol.get(url, {
       headers: {
@@ -119,11 +124,29 @@ function downloadFile(url: string): Promise<Buffer> {
         return;
       }
       
+      // Check Content-Length header if available
+      const contentLength = response.headers['content-length'];
+      if (contentLength && parseInt(contentLength) > MAX_APK_SIZE) {
+        reject(new Error(`APK file too large: ${contentLength} bytes (max: ${MAX_APK_SIZE} bytes)`));
+        request.destroy();
+        return;
+      }
+      
       response.on('data', (chunk: Buffer) => {
+        totalSize += chunk.length;
+        
+        // Check size limit during download
+        if (totalSize > MAX_APK_SIZE) {
+          reject(new Error(`APK download exceeded size limit: ${MAX_APK_SIZE} bytes`));
+          request.destroy();
+          return;
+        }
+        
         chunks.push(chunk);
       });
       
       response.on('end', () => {
+        console.log(`Downloaded ${totalSize} bytes`);
         resolve(Buffer.concat(chunks));
       });
       
@@ -136,9 +159,10 @@ function downloadFile(url: string): Promise<Buffer> {
       reject(error);
     });
     
-    request.setTimeout(60000, () => {
+    // Increased timeout for large files
+    request.setTimeout(120000, () => {
       request.destroy();
-      reject(new Error('Download timeout (60s)'));
+      reject(new Error('Download timeout (120s)'));
     });
   });
 }

@@ -251,6 +251,10 @@ export const adbService = {
           display: displaySerial
         });
 
+        if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+          console.log('[DEBUG] Connection successful, adbDevice is now:', adbDevice ? 'set' : 'null');
+        }
+
         return {
           success: true,
           device: {
@@ -342,6 +346,10 @@ export const adbService = {
 
   // Disconnect from device
   async disconnect(): Promise<void> {
+    if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+      console.log('[DEBUG] disconnect() called');
+      console.log('[DEBUG] adbDevice before disconnect:', adbDevice ? 'connected' : 'null');
+    }
     console.log('Disconnecting...');
     
     // Cancel any active connection attempt
@@ -396,7 +404,15 @@ export const adbService = {
 
   // Execute shell command
   async executeCommand(command: string): Promise<AdbCommandResult> {
+    if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+      console.log('[DEBUG] executeCommand called with:', command);
+      console.log('[DEBUG] adbDevice state:', adbDevice ? 'connected' : 'null');
+    }
+    
     if (!adbDevice) {
+      if (import.meta.env.VITE_DEBUG_MODE === 'true') {
+        console.error('[DEBUG] executeCommand failed: adbDevice is null');
+      }
       return {
         success: false,
         error: 'Not connected to device'
@@ -531,7 +547,7 @@ export const adbService = {
           throw new Error('Response body is null');
         }
         
-        // console.log(`Starting upload to ${tempPath}`);
+        console.log(`[APK DEBUG] Starting upload to ${tempPath}`);
         
         // Write file to device directly from stream
         // Cast to any to avoid ReadableStream type conflicts between DOM and Node types
@@ -540,7 +556,7 @@ export const adbService = {
           file: response.body as any,
         });
         
-        // console.log('Upload complete');
+        console.log('[APK DEBUG] Upload complete');
         if (onProgress) onProgress('Upload complete', 60);
       } catch (uploadError) {
         console.error('Upload failed:', uploadError);
@@ -551,7 +567,7 @@ export const adbService = {
 
       // Verify file exists on device
       const verifyResult = await this.executeCommand(`ls -lh "${tempPath}"`);
-      // console.log('File verification:', verifyResult);
+      console.log('[APK DEBUG] File verification:', verifyResult);
       if (!verifyResult.success || !verifyResult.output || verifyResult.output.includes('No such file')) {
         throw new Error('APK was not uploaded successfully to device');
       }
@@ -561,9 +577,9 @@ export const adbService = {
 
       // Use 'cmd package install' which is more reliable for large APKs on newer Android
       // -r: replace existing app, -t: allow test packages, -g: grant all permissions
-      // console.log(`Executing: cmd package install -r -t -g "${tempPath}"`);
+      console.log(`[APK DEBUG] Executing: cmd package install -r -t -g "${tempPath}"`);
       const installResult = await this.executeCommand(`cmd package install -r -t -g "${tempPath}"`);
-      // console.log('PM install result:', JSON.stringify(installResult, null, 2));
+      console.log('[APK DEBUG] PM install result:', JSON.stringify(installResult, null, 2));
       
       if (!installResult.success) {
         const errorMsg = installResult.error || installResult.output || 'Unknown installation error';
@@ -571,14 +587,14 @@ export const adbService = {
         throw new Error(`Installation failed: ${errorMsg}`);
       }
       
-      // console.log('PM install succeeded:', installResult.output);
+      console.log('[APK DEBUG] PM install succeeded:', installResult.output);
 
       if (onProgress) onProgress('Cleaning up...', 90);
 
       // Stage 4: Clean up temporary file (don't fail if cleanup fails)
       try {
         await this.executeCommand(`rm "${tempPath}"`);
-        // console.log('Cleanup successful');
+        console.log('[APK DEBUG] Cleanup successful');
       } catch (cleanupError) {
         console.warn('Cleanup failed (non-critical):', cleanupError);
         // Don't fail the installation if cleanup fails

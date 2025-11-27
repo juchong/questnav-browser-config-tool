@@ -2,8 +2,61 @@ import { useState, useEffect } from 'react';
 import { ConfigProfile, AdbCommand } from '../types';
 import { api } from '../services/apiService';
 import { githubService } from '../services/githubService';
+import ApkReleasesPanel from './ApkReleasesPanel';
 
 const CATEGORIES = ['refresh_rate', 'performance', 'display', 'privacy', 'system', 'diagnostic', 'app_install'] as const;
+
+/**
+ * Validate commands for common mistakes
+ * Returns array of warning messages
+ */
+function validateCommands(commands: AdbCommand[]): string[] {
+  const warnings: string[] = [];
+  
+  commands.forEach((cmd, index) => {
+    // Skip app_install commands (they don't use shell commands)
+    if (cmd.category === 'app_install') return;
+    
+    const command = cmd.command.trim();
+    const lowerCommand = command.toLowerCase();
+    
+    // Check for adb prefixes (common mistake)
+    if (lowerCommand.startsWith('adb ')) {
+      warnings.push(
+        `Command ${index + 1} ("${cmd.description}"): Remove "adb" prefix. Commands are already executed through ADB.`
+      );
+    }
+    
+    if (lowerCommand.startsWith('adb shell ')) {
+      warnings.push(
+        `Command ${index + 1} ("${cmd.description}"): Remove "adb shell" prefix. Commands are already in shell context.`
+      );
+    }
+    
+    // Check for nested adb shell (like in the command text)
+    if (lowerCommand.includes("adb shell '") || lowerCommand.includes('adb shell "')) {
+      warnings.push(
+        `Command ${index + 1} ("${cmd.description}"): Contains nested "adb shell" - this will fail on the device.`
+      );
+    }
+    
+    // Check for windows-style paths (might indicate copy-paste from local script)
+    if (command.match(/[A-Z]:\\/)) {
+      warnings.push(
+        `Command ${index + 1} ("${cmd.description}"): Contains Windows path (e.g., C:\\). This will fail on Android.`
+      );
+    }
+    
+    // Check for excessive whitespace or newlines
+    if (command.includes('\n') || command.includes('\r')) {
+      warnings.push(
+        `Command ${index + 1} ("${cmd.description}"): Contains newlines. Multi-line commands may not execute correctly.`
+      );
+    }
+  });
+  
+  return warnings;
+}
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -26,9 +79,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [editingProfile, setEditingProfile] = useState<ConfigProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [apkDownloadStates, setApkDownloadStates] = useState<ApkDownloadState>({});
+  const [cachedReleases, setCachedReleases] = useState<Array<{
+    id: number;
+    release_tag: string;
+    apk_name: string;
+    apk_hash: string;
+    apk_size: number;
+  }>>([]);
 
   useEffect(() => {
     loadData();
+    loadCachedReleases();
   }, []);
 
   const loadData = async () => {
@@ -48,6 +109,30 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   };
 
+  const loadCachedReleases = async () => {
+    try {
+      const response = await fetch('/api/admin/apk-releases', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Only include completed releases with hash
+        const completed = data.data
+          .filter((r: any) => r.download_status === 'completed' && r.apk_hash)
+          .map((r: any) => ({
+            id: r.id,
+            release_tag: r.release_tag,
+            apk_name: r.apk_name,
+            apk_hash: r.apk_hash,
+            apk_size: r.apk_size
+          }));
+        setCachedReleases(completed);
+      }
+    } catch (err) {
+      console.error('Failed to load cached releases:', err);
+    }
+  };
+
   const handleCreateNew = () => {
     setEditingProfile({
       name: '',
@@ -64,6 +149,20 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const handleSave = async () => {
     if (!editingProfile) return;
+
+    // Validate commands before saving
+    const warnings = validateCommands(editingProfile.commands);
+    
+    if (warnings.length > 0) {
+      const warningMessage = 
+        '⚠️ Command Validation Warnings:\n\n' +
+        warnings.map((w, i) => `${i + 1}. ${w}`).join('\n\n') +
+        '\n\nDo you want to save anyway?';
+      
+      if (!confirm(warningMessage)) {
+        return; // User cancelled
+      }
+    }
 
     try {
       if (isCreating) {
@@ -283,6 +382,101 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     downloadJSON(profiles, `questnav-profiles-${timestamp}.json`);
   };
 
+  const handleImportProfiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importedProfiles = JSON.parse(text) as ConfigProfile[];
+
+      // Validate that it's an array
+      if (!Array.isArray(importedProfiles)) {
+        alert('Invalid file format: Expected an array of profiles');
+        return;
+      }
+
+      // Validate each profile
+      for (const profile of importedProfiles) {
+        if (!profile.name || !profile.commands || !Array.isArray(profile.commands)) {
+          alert(`Invalid profile format: ${profile.name || 'Unknown'}`);
+          return;
+        }
+      }
+
+      // Check for duplicate names
+      const existingNames = new Set(profiles.map(p => p.name.toLowerCase()));
+      const duplicates: string[] = [];
+      const toImport: ConfigProfile[] = [];
+
+      for (const profile of importedProfiles) {
+        if (existingNames.has(profile.name.toLowerCase())) {
+          duplicates.push(profile.name);
+        } else {
+          toImport.push(profile);
+        }
+      }
+
+      // Handle duplicates
+      if (duplicates.length > 0) {
+        const dupeList = duplicates.join(', ');
+        const action = confirm(
+          `Found ${duplicates.length} duplicate profile name(s): ${dupeList}\n\n` +
+          `Click OK to skip duplicates and import ${toImport.length} new profile(s).\n` +
+          `Click Cancel to abort the entire import.`
+        );
+
+        if (!action) {
+          // Reset file input
+          event.target.value = '';
+          return;
+        }
+
+        if (toImport.length === 0) {
+          alert('No profiles to import (all were duplicates)');
+          event.target.value = '';
+          return;
+        }
+      }
+
+      // Import profiles
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const profile of toImport) {
+        try {
+          // Remove id and timestamps - let server assign new ones
+          const { id, created_at, updated_at, is_active, ...profileData } = profile;
+          await api.createProfile(profileData);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to import profile: ${profile.name}`, err);
+          failCount++;
+        }
+      }
+
+      // Show results
+      const message = [
+        `Import completed!`,
+        `✓ Successfully imported: ${successCount}`,
+        failCount > 0 ? `✗ Failed: ${failCount}` : '',
+        duplicates.length > 0 ? `⊘ Skipped duplicates: ${duplicates.length}` : ''
+      ].filter(Boolean).join('\n');
+
+      alert(message);
+
+      // Reload data
+      await loadData();
+      
+      // Reset file input for next use
+      event.target.value = '';
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      event.target.value = '';
+    }
+  };
+
   const handleExportLogs = async () => {
     try {
       const logs = await api.getLogs(1000); // Export up to 1000 logs
@@ -341,6 +535,15 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         </div>
       )}
 
+      {/* APK Releases */}
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <h2>QuestNav APK Releases</h2>
+        <p style={{ opacity: 0.8, marginBottom: '1rem' }}>
+          Automatically detected and manually managed APK releases from the QuestNav repository.
+        </p>
+        <ApkReleasesPanel />
+      </div>
+
       {/* Export Data */}
       <div className="card" style={{ marginBottom: '2rem' }}>
         <h2>Export Data</h2>
@@ -362,6 +565,36 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <span>📦</span>
             Export Profiles ({profiles.length})
           </button>
+          <label 
+            style={{ 
+              backgroundColor: '#10b981', 
+              color: 'white',
+              padding: '0.75rem 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              border: 'none',
+              fontWeight: 'bold',
+              fontSize: '1rem'
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.opacity = '0.9';
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.opacity = '1';
+            }}
+          >
+            <span>📥</span>
+            Import Profiles
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImportProfiles}
+              style={{ display: 'none' }}
+            />
+          </label>
           <button 
             onClick={handleExportLogs}
             style={{ 
@@ -378,8 +611,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           </button>
         </div>
         <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f610', borderRadius: '4px', fontSize: '0.875rem', opacity: 0.8 }}>
-          <strong>💡 Tip:</strong> Exported files include timestamps in their names for easy organization. 
-          Logs include full command results, browser info, and device details.
+          <strong>💡 Tip:</strong> Use Export/Import for backup and sharing configurations across deployments. 
+          Duplicate profile names are automatically detected and skipped during import.
         </div>
       </div>
 
@@ -449,7 +682,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   title="Add dumpsys tracking diagnostic command"
                 >
                   <span style={{ fontSize: '1.2em' }}>🔬</span>
-                  Add Diagnostic
+                  Dump Tracking
                 </button>
                 <button 
                   onClick={addAppInstallCommand} 
@@ -489,7 +722,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         fontSize: '0.75rem',
                         fontWeight: 'bold'
                       }}>
-                        DIAGNOSTIC
+                        DUMP TRACKING
                       </span>
                     )}
                     {cmd.category === 'app_install' && (
@@ -595,6 +828,48 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   }}
                 />
                 
+                {/* Inline command validation warnings */}
+                {cmd.category !== 'app_install' && (() => {
+                  const cmdLower = cmd.command.toLowerCase().trim();
+                  const warnings: string[] = [];
+                  
+                  if (cmdLower.startsWith('adb shell ')) {
+                    warnings.push('⚠️ Remove "adb shell" prefix - commands are already in shell context');
+                  } else if (cmdLower.startsWith('adb ')) {
+                    warnings.push('⚠️ Remove "adb" prefix - commands are already executed through ADB');
+                  }
+                  
+                  if (cmdLower.includes("adb shell '") || cmdLower.includes('adb shell "')) {
+                    warnings.push('⚠️ Contains nested "adb shell" - this will fail on device');
+                  }
+                  
+                  if (cmd.command.match(/[A-Z]:\\/)) {
+                    warnings.push('⚠️ Contains Windows path (e.g., C:\\) - this will fail on Android');
+                  }
+                  
+                  if (cmd.command.includes('\n') || cmd.command.includes('\r')) {
+                    warnings.push('⚠️ Contains newlines - multi-line commands may not execute correctly');
+                  }
+                  
+                  return warnings.length > 0 ? (
+                    <div style={{
+                      backgroundColor: '#fef3c7',
+                      color: '#92400e',
+                      padding: '0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.875rem',
+                      marginBottom: '0.5rem',
+                      border: '1px solid #fbbf24'
+                    }}>
+                      {warnings.map((warning, i) => (
+                        <div key={i} style={{ marginBottom: i < warnings.length - 1 ? '0.25rem' : 0 }}>
+                          {warning}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
+                
                 <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Category:</label>
                 <select
                   value={cmd.category}
@@ -643,16 +918,25 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 {/* APK-specific fields for app_install category */}
                 {cmd.category === 'app_install' && (
                   <>
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', marginTop: '0.5rem' }}>APK Name:</label>
-                    <input
-                      type="text"
-                      value={cmd.apk_name || ''}
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', marginTop: '0.5rem' }}>Select Cached APK:</label>
+                    <select
+                      value={cmd.apk_hash || ''}
                       onChange={(e) => {
-                        const newCommands = [...editingProfile.commands];
-                        newCommands[idx] = { ...newCommands[idx], apk_name: e.target.value };
-                        setEditingProfile({ ...editingProfile, commands: newCommands });
+                        const selectedHash = e.target.value;
+                        const selectedRelease = cachedReleases.find(r => r.apk_hash === selectedHash);
+                        
+                        if (selectedRelease) {
+                          const newCommands = [...editingProfile.commands];
+                          newCommands[idx] = {
+                            ...newCommands[idx],
+                            apk_hash: selectedRelease.apk_hash,
+                            apk_name: selectedRelease.apk_name,
+                            apk_url: `/api/apks/${selectedRelease.apk_hash}`,
+                            command: 'install_apk'
+                          };
+                          setEditingProfile({ ...editingProfile, commands: newCommands });
+                        }
                       }}
-                      placeholder="e.g., QuestNav.apk"
                       style={{
                         width: '100%',
                         padding: '0.5rem',
@@ -663,130 +947,52 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         color: 'inherit',
                         marginBottom: '0.5rem'
                       }}
-                    />
+                    >
+                      <option value="">-- Select a cached release --</option>
+                      {cachedReleases.map((release) => (
+                        <option key={release.id} value={release.apk_hash}>
+                          {release.release_tag} - {release.apk_name} ({(release.apk_size / 1024 / 1024).toFixed(2)} MB)
+                        </option>
+                      ))}
+                    </select>
 
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>APK URL:</label>
-                    <input
-                      type="url"
-                      value={cmd.apk_url || ''}
-                      onChange={(e) => {
-                        const newCommands = [...editingProfile.commands];
-                        newCommands[idx] = { ...newCommands[idx], apk_url: e.target.value };
-                        setEditingProfile({ ...editingProfile, commands: newCommands });
-                      }}
-                      placeholder="https://github.com/QuestNav/QuestNav/releases/download/..."
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        fontSize: '0.9rem',
+                    {cachedReleases.length === 0 && (
+                      <div style={{
+                        padding: '0.75rem',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid #f59e0b',
                         borderRadius: '4px',
-                        border: '1px solid #444',
-                        backgroundColor: '#1a1a1a',
-                        color: 'inherit',
-                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
                         marginBottom: '0.5rem'
-                      }}
-                    />
+                      }}>
+                        <strong>⚠️ No cached releases available.</strong>
+                        <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>
+                          Go to the "QuestNav APK Releases" section above and download some releases first.
+                        </p>
+                      </div>
+                    )}
 
-                    {/* Download Button and Status */}
-                    {(() => {
-                      const apkStatus = getApkStatus(idx, cmd);
-                      return (
-                        <div style={{ 
-                          marginTop: '0.5rem', 
-                          padding: '0.75rem', 
-                          backgroundColor: apkStatus.status === 'ready' ? '#10b98115' : 
-                                          apkStatus.status === 'error' ? '#ef444415' : 
-                                          apkStatus.status === 'downloading' ? '#3b82f615' : '#44444410',
-                          borderRadius: '4px',
-                          border: `1px solid ${apkStatus.status === 'ready' ? '#10b981' : 
-                                               apkStatus.status === 'error' ? '#ef4444' : 
-                                               apkStatus.status === 'downloading' ? '#3b82f6' : '#444'}`,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          flexWrap: 'wrap'
-                        }}>
-                          <div style={{ flex: 1, minWidth: '200px' }}>
-                            {apkStatus.status === 'not_downloaded' && (
-                              <div style={{ fontSize: '0.875rem' }}>
-                                <strong>⚠️ APK not downloaded</strong>
-                                <div style={{ opacity: 0.7, fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                                  Click "Download APK" to cache this file
-                                </div>
-                              </div>
-                            )}
-                            {apkStatus.status === 'downloading' && (
-                              <div style={{ fontSize: '0.875rem', color: '#3b82f6' }}>
-                                <strong>⏳ Downloading APK...</strong>
-                                <div style={{ opacity: 0.7, fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                                  Please wait...
-                                </div>
-                              </div>
-                            )}
-                            {apkStatus.status === 'ready' && (
-                              <div style={{ fontSize: '0.875rem', color: '#10b981' }}>
-                                <strong>✓ APK Ready</strong>
-                                <div style={{ opacity: 0.8, fontSize: '0.75rem', marginTop: '0.25rem', fontFamily: 'monospace' }}>
-                                  Hash: {apkStatus.hash?.substring(0, 16)}...
-                                  {apkStatus.size && ` • ${(apkStatus.size / 1024 / 1024).toFixed(2)} MB`}
-                                </div>
-                              </div>
-                            )}
-                            {apkStatus.status === 'error' && (
-                              <div style={{ fontSize: '0.875rem', color: '#ef4444' }}>
-                                <strong>❌ Download Failed</strong>
-                                <div style={{ opacity: 0.8, fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                                  {apkStatus.error || 'Unknown error'}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {(apkStatus.status === 'not_downloaded' || apkStatus.status === 'error') && (
-                            <button
-                              onClick={() => handleDownloadApk(idx)}
-                              disabled={!cmd.apk_url || !cmd.apk_name}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: !cmd.apk_url || !cmd.apk_name ? 'not-allowed' : 'pointer',
-                                opacity: !cmd.apk_url || !cmd.apk_name ? 0.5 : 1,
-                                fontWeight: 'bold',
-                                fontSize: '0.875rem'
-                              }}
-                            >
-                              {apkStatus.status === 'error' ? 'Retry Download' : 'Download APK'}
-                            </button>
-                          )}
-                          
-                          {apkStatus.status === 'ready' && (
-                            <button
-                              onClick={() => handleDownloadApk(idx)}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                fontSize: '0.875rem'
-                              }}
-                            >
-                              Re-download
-                            </button>
-                          )}
+                    {cmd.apk_hash && (
+                      <div style={{
+                        padding: '0.75rem',
+                        backgroundColor: '#10b98115',
+                        border: '1px solid #10b981',
+                        borderRadius: '4px',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem'
+                      }}>
+                        <div style={{ marginBottom: '0.25rem', color: '#10b981' }}><strong>✓ APK Ready</strong></div>
+                        <div style={{ opacity: 0.8, fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                          Name: {cmd.apk_name}
                         </div>
-                      );
-                    })()}
+                        <div style={{ opacity: 0.8, fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                          Hash: {cmd.apk_hash.substring(0, 16)}...
+                        </div>
+                      </div>
+                    )}
 
                     <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.5rem' }}>
-                      💡 Tip: Download APK before saving to ensure it's ready for users
+                      💡 Tip: APKs are served from the cache. No need to download separately.
                     </div>
                   </>
                 )}

@@ -8,9 +8,10 @@ import { AuthResponse } from '../models/types';
 const router = express.Router();
 
 // Rate limiter for login attempts
+// More lenient in development
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts
+  max: process.env.NODE_ENV === 'development' ? 50 : 5, // 50 in dev, 5 in prod
   message: { success: false, error: 'Too many login attempts, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -57,12 +58,14 @@ router.post('/login', loginLimiter, async (req, res) => {
       username: user.username
     });
 
-    // Set httpOnly cookie
+    // Set httpOnly cookie with secure settings
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: authService.getTokenExpiration()
+      secure: isProduction, // HTTPS only in production
+      sameSite: isProduction ? 'strict' : 'lax', // Strict in production, lax for dev
+      maxAge: authService.getTokenExpiration(),
+      domain: isProduction ? '.questnav.gg' : undefined // Allow subdomains in production
     });
 
     const response: AuthResponse = {
@@ -82,10 +85,12 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 // Logout endpoint
 router.post('/logout', (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
   res.clearCookie('auth_token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
+    domain: isProduction ? '.questnav.gg' : undefined
   });
 
   const response: AuthResponse = {
