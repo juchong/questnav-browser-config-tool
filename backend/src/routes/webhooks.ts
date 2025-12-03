@@ -14,7 +14,8 @@ router.post('/github', async (req, res) => {
   try {
     const signature = req.headers['x-hub-signature-256'] as string;
     const event = req.headers['x-github-event'] as string;
-    const payload = JSON.stringify(req.body);
+    // Use raw body for signature verification (captured by express.json verify callback)
+    const payload = (req as any).rawBody || JSON.stringify(req.body);
 
     // Verify webhook signature if secret is configured
     const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET;

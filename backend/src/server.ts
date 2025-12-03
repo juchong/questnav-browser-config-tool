@@ -194,7 +194,14 @@ app.use('/api/', limiter);
 
 // Body parsing middleware
 // Increase limit for detailed execution logs with command results
-app.use(express.json({ limit: '1mb' }));
+// Capture raw body for webhook signature verification
+app.use(express.json({ 
+  limit: '1mb',
+  verify: (req: express.Request, res: express.Response, buf: Buffer) => {
+    // Store raw body for signature verification (needed for webhooks)
+    (req as any).rawBody = buf.toString('utf8');
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
