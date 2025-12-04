@@ -54,7 +54,10 @@ router.post('/', logCreationLimiter, (req, res) => {
       timezone,
       language,
       webusb_supported,
-      browser_fingerprint
+      browser_fingerprint,
+      // QuestNav installation tracking
+      questnav_installed,
+      questnav_version
     } = req.body;
 
     // Validate profile_id
@@ -126,6 +129,9 @@ router.post('/', logCreationLimiter, (req, res) => {
     const sanitizedLanguage = language ? sanitizeString(language, 50) : undefined;
     const sanitizedFingerprint = browser_fingerprint ? sanitizeBrowserFingerprint(browser_fingerprint) : undefined;
 
+    // Sanitize QuestNav version
+    const sanitizedQuestNavVersion = questnav_version ? sanitizeString(questnav_version, 50) : undefined;
+
     // Build log entry with sanitized data
     const logEntry: ExecutionLog = {
       profile_id,
@@ -155,7 +161,10 @@ router.post('/', logCreationLimiter, (req, res) => {
       timezone: sanitizedTimezone,
       language: sanitizedLanguage,
       webusb_supported,
-      browser_fingerprint: sanitizedFingerprint
+      browser_fingerprint: sanitizedFingerprint,
+      // QuestNav installation tracking
+      questnav_installed: questnav_installed === true,
+      questnav_version: sanitizedQuestNavVersion
     };
 
     const log = logDb.create(logEntry);
@@ -224,6 +233,28 @@ router.get('/admin/profile/:profileId', requireAuth, (req, res) => {
 router.get('/admin/stats', requireAuth, (req, res) => {
   try {
     const stats = logDb.getStats();
+    const response: ApiResponse = {
+      success: true,
+      data: stats
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Get extended statistics with visualizations data (admin)
+router.get('/admin/stats/extended', requireAuth, (req, res) => {
+  try {
+    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    // Validate days parameter (1-365)
+    const validDays = Math.min(365, Math.max(1, isNaN(days) ? 30 : days));
+    
+    const stats = logDb.getExtendedStats(validDays);
     const response: ApiResponse = {
       success: true,
       data: stats

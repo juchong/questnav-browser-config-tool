@@ -23,7 +23,7 @@ export default function ApkReleasesPanel() {
   const [webhookInfo, setWebhookInfo] = useState<{ secretConfigured: boolean } | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<{ hasReleases: boolean; releaseCount: number; completedCount: number } | null>(null);
   const [isBackfilling, setIsBackfilling] = useState(false);
-  const [isTableExpanded, setIsTableExpanded] = useState(true);
+  const [isTableExpanded, setIsTableExpanded] = useState(false);
 
   useEffect(() => {
     loadReleases();

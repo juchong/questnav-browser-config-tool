@@ -1,5 +1,5 @@
 import express from 'express';
-import { profileDb, apkReleaseDb } from '../services/database';
+import { profileDb, apkReleaseDb, ignoredSerialDb } from '../services/database';
 import { downloadAndCacheApk, deleteApk } from '../services/apkService';
 import { triggerManualDownload } from '../services/webhookService';
 import { backfillReleases, getBackfillStatus } from '../services/releaseBackfillService';
@@ -469,6 +469,116 @@ router.get('/apk-releases/backfill-status', (req, res) => {
     const response: ApiResponse = {
       success: true,
       data: status
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// ====== Ignored Serials Management (for excluding dev/test devices from analytics) ======
+
+// Get all ignored serials
+router.get('/ignored-serials', (req, res) => {
+  try {
+    const serials = ignoredSerialDb.getAll();
+    const response: ApiResponse = {
+      success: true,
+      data: serials
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Get available serials (devices that can be ignored)
+router.get('/ignored-serials/available', (req, res) => {
+  try {
+    const serials = ignoredSerialDb.getAvailableSerials();
+    const response: ApiResponse = {
+      success: true,
+      data: serials
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Add a serial to ignored list
+router.post('/ignored-serials', (req, res) => {
+  try {
+    const { serial, label } = req.body;
+
+    if (!serial || typeof serial !== 'string' || serial.trim().length === 0) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Serial is required'
+      };
+      return res.status(400).json(response);
+    }
+
+    // Check if already exists
+    if (ignoredSerialDb.exists(serial.trim())) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'This serial is already in the ignored list'
+      };
+      return res.status(400).json(response);
+    }
+
+    const newEntry = ignoredSerialDb.add(serial.trim(), label?.trim());
+    const response: ApiResponse = {
+      success: true,
+      data: newEntry
+    };
+    res.status(201).json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Remove a serial from ignored list
+router.delete('/ignored-serials/:id', (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Invalid ID'
+      };
+      return res.status(400).json(response);
+    }
+
+    const success = ignoredSerialDb.removeById(id);
+    if (!success) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Entry not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    const response: ApiResponse = {
+      success: true,
+      data: { message: 'Serial removed from ignored list' }
     };
     res.json(response);
   } catch (error) {

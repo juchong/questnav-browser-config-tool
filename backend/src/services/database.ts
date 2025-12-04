@@ -68,6 +68,14 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_logs_executed_at ON execution_logs(executed_at);
     CREATE INDEX IF NOT EXISTS idx_releases_tag ON apk_releases(release_tag);
     CREATE INDEX IF NOT EXISTS idx_releases_status ON apk_releases(download_status);
+
+    CREATE TABLE IF NOT EXISTS ignored_serials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      serial TEXT NOT NULL UNIQUE,
+      label TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_ignored_serials ON ignored_serials(serial);
   `);
 
   // Migrate existing database: add is_active column if it doesn't exist
@@ -120,7 +128,10 @@ function initializeDatabase() {
       { name: 'timezone', type: 'TEXT' },
       { name: 'language', type: 'TEXT' },
       { name: 'webusb_supported', type: 'INTEGER' },
-      { name: 'browser_fingerprint', type: 'TEXT' }
+      { name: 'browser_fingerprint', type: 'TEXT' },
+      // QuestNav installation tracking
+      { name: 'questnav_installed', type: 'INTEGER' },
+      { name: 'questnav_version', type: 'TEXT' }
     ];
 
     let migrationNeeded = false;
@@ -481,6 +492,17 @@ export const logDb = {
       placeholders.push('?');
       values.push(log.browser_fingerprint);
     }
+    // QuestNav installation tracking
+    if (log.questnav_installed !== undefined) {
+      fields.push('questnav_installed');
+      placeholders.push('?');
+      values.push(log.questnav_installed ? 1 : 0);
+    }
+    if (log.questnav_version !== undefined) {
+      fields.push('questnav_version');
+      placeholders.push('?');
+      values.push(log.questnav_version);
+    }
 
     const sql = `INSERT INTO execution_logs (${fields.join(', ')}) VALUES (${placeholders.join(', ')})`;
     const stmt = db.prepare(sql);
@@ -572,15 +594,231 @@ export const logDb = {
   },
 
   getStats() {
-    const total = db.prepare('SELECT COUNT(*) as count FROM execution_logs').get() as { count: number };
-    const success = db.prepare('SELECT COUNT(*) as count FROM execution_logs WHERE status = ?').get('success') as { count: number };
-    const failure = db.prepare('SELECT COUNT(*) as count FROM execution_logs WHERE status = ?').get('failure') as { count: number };
+    // Exclude ignored serials from stats
+    const excludeClause = `
+      AND (device_serial IS NULL OR device_serial NOT IN (SELECT serial FROM ignored_serials))
+    `;
+    const total = db.prepare(`SELECT COUNT(*) as count FROM execution_logs WHERE 1=1 ${excludeClause}`).get() as { count: number };
+    const success = db.prepare(`SELECT COUNT(*) as count FROM execution_logs WHERE status = ? ${excludeClause}`).get('success') as { count: number };
+    const failure = db.prepare(`SELECT COUNT(*) as count FROM execution_logs WHERE status = ? ${excludeClause}`).get('failure') as { count: number };
     
     return {
       total: total.count,
       success: success.count,
       failure: failure.count,
       successRate: total.count > 0 ? (success.count / total.count) * 100 : 0
+    };
+  },
+
+  getExtendedStats(days: number = 30) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffStr = cutoffDate.toISOString();
+
+    // Subquery to get ignored serials
+    const excludeClause = `AND (device_serial IS NULL OR device_serial NOT IN (SELECT serial FROM ignored_serials))`;
+
+    // Basic counts for the period
+    const periodStats = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) as failure,
+        SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial
+      FROM execution_logs 
+      WHERE executed_at >= ? ${excludeClause}
+    `).get(cutoffStr) as { total: number; success: number; failure: number; partial: number };
+
+    // Daily breakdown
+    const dailyStats = db.prepare(`
+      SELECT 
+        DATE(executed_at) as date,
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) as failure
+      FROM execution_logs 
+      WHERE executed_at >= ? ${excludeClause}
+      GROUP BY DATE(executed_at)
+      ORDER BY date ASC
+    `).all(cutoffStr) as Array<{ date: string; total: number; success: number; failure: number }>;
+
+    // Browser breakdown
+    const browserStats = db.prepare(`
+      SELECT 
+        COALESCE(browser_name, 'Unknown') as browser,
+        COUNT(*) as count
+      FROM execution_logs 
+      WHERE executed_at >= ? ${excludeClause}
+      GROUP BY browser_name
+      ORDER BY count DESC
+      LIMIT 10
+    `).all(cutoffStr) as Array<{ browser: string; count: number }>;
+
+    // OS breakdown
+    const osStats = db.prepare(`
+      SELECT 
+        COALESCE(os_name, 'Unknown') as os,
+        COUNT(*) as count
+      FROM execution_logs 
+      WHERE executed_at >= ? ${excludeClause}
+      GROUP BY os_name
+      ORDER BY count DESC
+      LIMIT 10
+    `).all(cutoffStr) as Array<{ os: string; count: number }>;
+
+    // Unique devices count (exclude ignored serials from count)
+    const deviceStats = db.prepare(`
+      SELECT 
+        COUNT(DISTINCT device_serial) as unique_devices
+      FROM execution_logs 
+      WHERE executed_at >= ? AND device_serial IS NOT NULL 
+        AND device_serial NOT IN (SELECT serial FROM ignored_serials)
+    `).get(cutoffStr) as { unique_devices: number };
+
+    // Execution duration stats
+    const durationStats = db.prepare(`
+      SELECT 
+        AVG(execution_duration_ms) as avg_duration,
+        MIN(execution_duration_ms) as min_duration,
+        MAX(execution_duration_ms) as max_duration
+      FROM execution_logs 
+      WHERE executed_at >= ? AND execution_duration_ms IS NOT NULL ${excludeClause}
+    `).get(cutoffStr) as { avg_duration: number | null; min_duration: number | null; max_duration: number | null };
+
+    // Recent executions (exclude ignored serials)
+    const recentExecutionsRaw = db.prepare(`
+      SELECT 
+        id,
+        status,
+        device_name,
+        device_serial,
+        browser_name,
+        os_name,
+        executed_at,
+        execution_duration_ms,
+        total_commands,
+        successful_commands,
+        failed_commands,
+        command_results,
+        questnav_installed,
+        questnav_version,
+        client_ip
+      FROM execution_logs 
+      WHERE 1=1 ${excludeClause}
+      ORDER BY executed_at DESC
+      LIMIT 10
+    `).all() as Array<{
+      id: number;
+      status: string;
+      device_name: string | null;
+      device_serial: string | null;
+      browser_name: string | null;
+      os_name: string | null;
+      executed_at: string;
+      command_results: string | null;
+      questnav_installed: number | null;
+      questnav_version: string | null;
+      execution_duration_ms: number | null;
+      total_commands: number | null;
+      successful_commands: number | null;
+      failed_commands: number | null;
+      client_ip: string | null;
+    }>;
+
+    // Process recent executions to extract failed command details and infer QuestNav status
+    const recentExecutions = recentExecutionsRaw.map(exec => {
+      let failedCommands: Array<{ description: string; error: string }> = [];
+      let inferredQuestNavInstalled = exec.questnav_installed === 1;
+      let inferredQuestNavVersion = exec.questnav_version;
+      
+      // Parse command_results to find failed commands and infer QuestNav installation
+      if (exec.command_results) {
+        try {
+          const results = JSON.parse(exec.command_results);
+          if (Array.isArray(results)) {
+            // Extract failed commands
+            failedCommands = results
+              .filter((r: any) => !r.success)
+              .map((r: any) => ({
+                description: r.description || r.command || 'Unknown command',
+                error: r.error || 'Unknown error'
+              }));
+            
+            // Infer QuestNav installation from command_results if not explicitly set
+            // (for historical data before we added the questnav_installed field)
+            if (exec.questnav_installed === null) {
+              const appInstallCmd = results.find((r: any) => 
+                r.category === 'app_install' && r.success
+              );
+              if (appInstallCmd) {
+                inferredQuestNavInstalled = true;
+                // Try to extract version from description or command
+                const versionMatch = (appInstallCmd.description || '').match(/v[\d.]+/) ||
+                                    (appInstallCmd.command || '').match(/v[\d.]+/);
+                if (versionMatch) {
+                  inferredQuestNavVersion = versionMatch[0];
+                } else {
+                  inferredQuestNavVersion = 'installed';
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      
+      return {
+        id: exec.id,
+        status: exec.status,
+        device_name: exec.device_name,
+        device_serial: exec.device_serial,
+        browser_name: exec.browser_name,
+        os_name: exec.os_name,
+        executed_at: exec.executed_at,
+        execution_duration_ms: exec.execution_duration_ms,
+        total_commands: exec.total_commands,
+        successful_commands: exec.successful_commands,
+        failed_commands: exec.failed_commands,
+        questnav_installed: inferredQuestNavInstalled,
+        questnav_version: inferredQuestNavVersion,
+        failed_command_details: failedCommands,
+        client_ip: exec.client_ip
+      };
+    });
+
+    // All-time stats for comparison (excluding ignored serials)
+    const allTimeStats = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
+      FROM execution_logs
+      WHERE 1=1 ${excludeClause}
+    `).get() as { total: number; success: number };
+
+    return {
+      period: {
+        days,
+        ...periodStats,
+        successRate: periodStats.total > 0 ? (periodStats.success / periodStats.total) * 100 : 0
+      },
+      allTime: {
+        total: allTimeStats.total,
+        success: allTimeStats.success,
+        successRate: allTimeStats.total > 0 ? (allTimeStats.success / allTimeStats.total) * 100 : 0
+      },
+      daily: dailyStats,
+      browsers: browserStats,
+      operatingSystems: osStats,
+      devices: {
+        uniqueCount: deviceStats.unique_devices
+      },
+      duration: {
+        avgMs: durationStats.avg_duration ? Math.round(durationStats.avg_duration) : null,
+        minMs: durationStats.min_duration,
+        maxMs: durationStats.max_duration
+      },
+      recentExecutions
     };
   }
 };
@@ -706,6 +944,63 @@ export const apkReleaseDb = {
     const result = db.prepare('SELECT COUNT(*) as count FROM apk_releases WHERE release_tag = ?')
       .get(tag) as { count: number };
     return result.count > 0;
+  }
+};
+
+// Ignored serials operations (for excluding dev/test devices from analytics)
+export interface IgnoredSerial {
+  id?: number;
+  serial: string;
+  label?: string;
+  created_at?: string;
+}
+
+export const ignoredSerialDb = {
+  getAll(): IgnoredSerial[] {
+    return db.prepare('SELECT * FROM ignored_serials ORDER BY created_at DESC').all() as IgnoredSerial[];
+  },
+
+  getBySerial(serial: string): IgnoredSerial | undefined {
+    return db.prepare('SELECT * FROM ignored_serials WHERE serial = ?').get(serial) as IgnoredSerial | undefined;
+  },
+
+  add(serial: string, label?: string): IgnoredSerial {
+    const stmt = db.prepare('INSERT INTO ignored_serials (serial, label) VALUES (?, ?)');
+    const result = stmt.run(serial, label || null);
+    return db.prepare('SELECT * FROM ignored_serials WHERE id = ?').get(result.lastInsertRowid) as IgnoredSerial;
+  },
+
+  remove(serial: string): boolean {
+    const stmt = db.prepare('DELETE FROM ignored_serials WHERE serial = ?');
+    const result = stmt.run(serial);
+    return result.changes > 0;
+  },
+
+  removeById(id: number): boolean {
+    const stmt = db.prepare('DELETE FROM ignored_serials WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
+  },
+
+  exists(serial: string): boolean {
+    const result = db.prepare('SELECT COUNT(*) as count FROM ignored_serials WHERE serial = ?')
+      .get(serial) as { count: number };
+    return result.count > 0;
+  },
+
+  // Get all unique serials from logs that aren't already ignored
+  getAvailableSerials(): Array<{ serial: string; device_name: string; execution_count: number }> {
+    return db.prepare(`
+      SELECT 
+        device_serial as serial,
+        device_name,
+        COUNT(*) as execution_count
+      FROM execution_logs
+      WHERE device_serial IS NOT NULL 
+        AND device_serial NOT IN (SELECT serial FROM ignored_serials)
+      GROUP BY device_serial
+      ORDER BY execution_count DESC
+    `).all() as any[];
   }
 };
 

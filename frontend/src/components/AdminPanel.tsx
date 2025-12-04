@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ConfigProfile, AdbCommand } from '../types';
-import { api } from '../services/apiService';
+import { api, IgnoredSerial, AvailableSerial } from '../services/apiService';
 import { githubService } from '../services/githubService';
 import ApkReleasesPanel from './ApkReleasesPanel';
+import StatsPanel from './StatsPanel';
 
 const CATEGORIES = ['refresh_rate', 'performance', 'display', 'privacy', 'system', 'diagnostic', 'app_install'] as const;
 
@@ -76,10 +77,13 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     apk_hash: string;
     apk_size: number;
   }>>([]);
+  const [ignoredSerials, setIgnoredSerials] = useState<IgnoredSerial[]>([]);
+  const [availableSerials, setAvailableSerials] = useState<AvailableSerial[]>([]);
 
   useEffect(() => {
     loadData();
     loadCachedReleases();
+    loadIgnoredSerials();
   }, []);
 
   const loadData = async () => {
@@ -120,6 +124,43 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       }
     } catch (err) {
       console.error('Failed to load cached releases:', err);
+    }
+  };
+
+  const loadIgnoredSerials = async () => {
+    try {
+      const [ignored, available] = await Promise.all([
+        api.getIgnoredSerials(),
+        api.getAvailableSerials()
+      ]);
+      setIgnoredSerials(ignored);
+      setAvailableSerials(available);
+    } catch (err) {
+      console.error('Failed to load ignored serials:', err);
+    }
+  };
+
+  const handleAddIgnoredSerial = async (serial: string, label?: string) => {
+    try {
+      await api.addIgnoredSerial(serial, label);
+      await loadIgnoredSerials();
+      // Reload stats to reflect the change
+      const statsData = await api.getStats();
+      setStats(statsData);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to add ignored serial');
+    }
+  };
+
+  const handleRemoveIgnoredSerial = async (id: number) => {
+    try {
+      await api.removeIgnoredSerial(id);
+      await loadIgnoredSerials();
+      // Reload stats to reflect the change
+      const statsData = await api.getStats();
+      setStats(statsData);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove ignored serial');
     }
   };
 
@@ -412,29 +453,13 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       </div>
       
       {/* Statistics */}
-      {stats && (
-        <div className="card" style={{ marginBottom: '2rem' }}>
-          <h2>Statistics</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.total}</div>
-              <div style={{ opacity: 0.7 }}>Total Executions</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#4ade80' }}>{stats.success}</div>
-              <div style={{ opacity: 0.7 }}>Successful</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>{stats.failure}</div>
-              <div style={{ opacity: 0.7 }}>Failed</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.successRate.toFixed(1)}%</div>
-              <div style={{ opacity: 0.7 }}>Success Rate</div>
-            </div>
-          </div>
-        </div>
-      )}
+      <StatsPanel 
+        basicStats={stats} 
+        ignoredSerials={ignoredSerials}
+        availableSerials={availableSerials}
+        onAddIgnoredSerial={handleAddIgnoredSerial}
+        onRemoveIgnoredSerial={handleRemoveIgnoredSerial}
+      />
 
       {/* APK Releases */}
       <div className="card" style={{ marginBottom: '2rem' }}>
@@ -650,6 +675,30 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         HIDDEN
                       </span>
                     )}
+                    {cmd.requires_questnav === 'with' && (
+                      <span style={{ 
+                        backgroundColor: '#10b981', 
+                        color: 'white', 
+                        padding: '0.125rem 0.375rem', 
+                        borderRadius: '3px', 
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold'
+                      }}>
+                        WITH QUESTNAV
+                      </span>
+                    )}
+                    {cmd.requires_questnav === 'without' && (
+                      <span style={{ 
+                        backgroundColor: '#f59e0b', 
+                        color: 'white', 
+                        padding: '0.125rem 0.375rem', 
+                        borderRadius: '3px', 
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold'
+                      }}>
+                        WITHOUT QUESTNAV
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button 
@@ -816,6 +865,66 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   <span>Hide this command from users</span>
                 </label>
 
+                {/* QuestNav Conditional Execution */}
+                <div style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  backgroundColor: '#44444410',
+                  borderRadius: '4px',
+                  fontSize: '0.875rem'
+                }}>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500 }}>
+                    QuestNav Install Condition:
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name={`questnav-condition-${idx}`}
+                        checked={!cmd.requires_questnav}
+                        onChange={() => updateCommand(idx, 'requires_questnav', '')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>Always run</span>
+                    </label>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.375rem', 
+                      cursor: 'pointer',
+                      color: '#10b981'
+                    }}>
+                      <input
+                        type="radio"
+                        name={`questnav-condition-${idx}`}
+                        checked={cmd.requires_questnav === 'with'}
+                        onChange={() => updateCommand(idx, 'requires_questnav', 'with')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>Only with QuestNav</span>
+                    </label>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.375rem', 
+                      cursor: 'pointer',
+                      color: '#f59e0b'
+                    }}>
+                      <input
+                        type="radio"
+                        name={`questnav-condition-${idx}`}
+                        checked={cmd.requires_questnav === 'without'}
+                        onChange={() => updateCommand(idx, 'requires_questnav', 'without')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>Only without QuestNav</span>
+                    </label>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.375rem' }}>
+                    Controls whether this command runs based on user's QuestNav installation choice
+                  </div>
+                </div>
+
                 {/* APK-specific fields for app_install category */}
                 {cmd.category === 'app_install' && (
                   <>
@@ -954,12 +1063,34 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                       )}
                     </div>
                     <p style={{ opacity: 0.8, marginBottom: '0.5rem' }}>{profile.description}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.875rem', opacity: 0.6, flexWrap: 'wrap' }}>
-                      <span>
+                    <div style={{ fontSize: '0.875rem', opacity: 0.6 }}>
+                      <div style={{ marginBottom: '0.25rem' }}>
                         {profile.commands.length} total command{profile.commands.length !== 1 ? 's' : ''}
                         {' • '}
                         {profile.commands.filter(cmd => !cmd.is_hidden).length} user-facing
-                      </span>
+                      </div>
+                      {(() => {
+                        const always = profile.commands.filter(cmd => !cmd.requires_questnav).length;
+                        const withQN = profile.commands.filter(cmd => cmd.requires_questnav === 'with').length;
+                        const withoutQN = profile.commands.filter(cmd => cmd.requires_questnav === 'without').length;
+                        // Only show breakdown if there are conditional commands
+                        if (withQN === 0 && withoutQN === 0) return null;
+                        return (
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {always > 0 && <span>{always} always</span>}
+                            {withQN > 0 && (
+                              <span style={{ color: '#10b981', opacity: 1 }}>
+                                {withQN} with QuestNav
+                              </span>
+                            )}
+                            {withoutQN > 0 && (
+                              <span style={{ color: '#f59e0b', opacity: 1 }}>
+                                {withoutQN} without QuestNav
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

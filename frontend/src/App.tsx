@@ -220,9 +220,20 @@ function App() {
     // Build the full command list including optional QuestNav APK
     let allCommands: AdbCommand[] = [...profile.commands];
     
+    // Filter commands based on requires_questnav condition
+    allCommands = allCommands.filter(cmd => {
+      // If command has no condition, always include it
+      if (!cmd.requires_questnav) return true;
+      // If condition is 'with', only include if user is installing QuestNav
+      if (cmd.requires_questnav === 'with') return installQuestNav;
+      // If condition is 'without', only include if user is NOT installing QuestNav
+      if (cmd.requires_questnav === 'without') return !installQuestNav;
+      return true;
+    });
+    
     // If user opted in for QuestNav, add it at the end (unless admin already added it)
     if (installQuestNav) {
-      const hasQuestNavInstall = profile.commands.some(cmd => cmd.category === 'app_install');
+      const hasQuestNavInstall = allCommands.some(cmd => cmd.category === 'app_install');
       if (!hasQuestNavInstall && selectedApkHash) {
         // Use the selected cached APK - add at the END
         allCommands.push({
@@ -356,6 +367,12 @@ function App() {
         
         // Log success with full details
         if (profile.id) {
+          // Find QuestNav version from executed app_install commands
+          const questNavCmd = allCommands.find(cmd => cmd.category === 'app_install');
+          const questNavVersion = questNavCmd?.description?.match(/v[\d.]+/)?.[0] || 
+                                  questNavCmd?.apk_name?.match(/v[\d.]+/)?.[0] || 
+                                  (questNavCmd ? 'unknown' : undefined);
+          
           await api.logExecution({
             profile_id: profile.id,
             status: 'success',
@@ -368,6 +385,8 @@ function App() {
             total_commands: allCommands.length,
             successful_commands: successCount,
             failed_commands: 0,
+            questnav_installed: installQuestNav,
+            questnav_version: installQuestNav ? questNavVersion : undefined,
             ...browserInfo
           });
         }
@@ -381,6 +400,11 @@ function App() {
         
         // Log failure with full details
         if (profile.id) {
+          const questNavCmd = allCommands.find(cmd => cmd.category === 'app_install');
+          const questNavVersion = questNavCmd?.description?.match(/v[\d.]+/)?.[0] || 
+                                  questNavCmd?.apk_name?.match(/v[\d.]+/)?.[0] || 
+                                  (questNavCmd ? 'unknown' : undefined);
+          
           await api.logExecution({
             profile_id: profile.id,
             status: 'failure',
@@ -394,6 +418,8 @@ function App() {
             total_commands: allCommands.length,
             successful_commands: 0,
             failed_commands: failures.length,
+            questnav_installed: installQuestNav,
+            questnav_version: installQuestNav ? questNavVersion : undefined,
             ...browserInfo
           });
         }
@@ -412,6 +438,11 @@ function App() {
         
         // Log partial success with full details
         if (profile.id) {
+          const questNavCmd = allCommands.find(cmd => cmd.category === 'app_install');
+          const questNavVersion = questNavCmd?.description?.match(/v[\d.]+/)?.[0] || 
+                                  questNavCmd?.apk_name?.match(/v[\d.]+/)?.[0] || 
+                                  (questNavCmd ? 'unknown' : undefined);
+          
           await api.logExecution({
             profile_id: profile.id,
             status: 'partial',
@@ -425,6 +456,8 @@ function App() {
             total_commands: allCommands.length,
             successful_commands: successCount,
             failed_commands: failures.length,
+            questnav_installed: installQuestNav,
+            questnav_version: installQuestNav ? questNavVersion : undefined,
             ...browserInfo
           });
         }
@@ -454,6 +487,7 @@ function App() {
           total_commands: profile.commands.length,
           successful_commands: detailedResults.filter(r => r.success).length,
           failed_commands: detailedResults.filter(r => !r.success).length,
+          questnav_installed: installQuestNav,
           ...browserInfo
         });
       }

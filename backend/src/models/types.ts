@@ -3,6 +3,10 @@ export interface AdbCommand {
   description: string;
   category: 'refresh_rate' | 'performance' | 'display' | 'privacy' | 'system' | 'diagnostic' | 'app_install';
   is_hidden?: boolean;   // Hide this command from user-facing lists
+  requires_questnav?: 'with' | 'without';  // Conditional execution based on QuestNav install choice
+  // 'with' = only run if user chose to install QuestNav
+  // 'without' = only run if user opted OUT of QuestNav
+  // undefined = always run
   // Additional fields for app_install category
   apk_url?: string;      // Original URL (for reference/re-download)
   apk_name?: string;     // Friendly name of the APK (for app_install commands)
@@ -76,6 +80,10 @@ export interface ExecutionLog extends BrowserInfo {
   total_commands?: number;
   successful_commands?: number;
   failed_commands?: number;
+  
+  // QuestNav installation tracking
+  questnav_installed?: boolean;
+  questnav_version?: string;
 }
 
 export interface ApiResponse<T = any> {

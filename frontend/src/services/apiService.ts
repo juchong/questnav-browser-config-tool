@@ -89,6 +89,120 @@ export const api = {
     const data: ApiResponse = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch stats');
     return data.data;
+  },
+
+  async getExtendedStats(days: number = 30): Promise<ExtendedStats> {
+    const response = await fetch(`${API_BASE}/logs/admin/stats/extended?days=${days}`);
+    const data: ApiResponse<ExtendedStats> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to fetch extended stats');
+    return data.data!;
+  },
+
+  // Ignored serials management
+  async getIgnoredSerials(): Promise<IgnoredSerial[]> {
+    const response = await fetch(`${API_BASE}/admin/ignored-serials`);
+    const data: ApiResponse<IgnoredSerial[]> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to fetch ignored serials');
+    return data.data!;
+  },
+
+  async getAvailableSerials(): Promise<AvailableSerial[]> {
+    const response = await fetch(`${API_BASE}/admin/ignored-serials/available`);
+    const data: ApiResponse<AvailableSerial[]> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to fetch available serials');
+    return data.data!;
+  },
+
+  async addIgnoredSerial(serial: string, label?: string): Promise<IgnoredSerial> {
+    const response = await fetch(`${API_BASE}/admin/ignored-serials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serial, label })
+    });
+    const data: ApiResponse<IgnoredSerial> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to add ignored serial');
+    return data.data!;
+  },
+
+  async removeIgnoredSerial(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE}/admin/ignored-serials/${id}`, {
+      method: 'DELETE'
+    });
+    const data: ApiResponse = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to remove ignored serial');
   }
 };
+
+// Ignored serial types
+export interface IgnoredSerial {
+  id: number;
+  serial: string;
+  label?: string;
+  created_at: string;
+}
+
+export interface AvailableSerial {
+  serial: string;
+  device_name: string;
+  execution_count: number;
+}
+
+// Extended stats type for visualizations
+export interface ExtendedStats {
+  period: {
+    days: number;
+    total: number;
+    success: number;
+    failure: number;
+    partial: number;
+    successRate: number;
+  };
+  allTime: {
+    total: number;
+    success: number;
+    successRate: number;
+  };
+  daily: Array<{
+    date: string;
+    total: number;
+    success: number;
+    failure: number;
+  }>;
+  browsers: Array<{
+    browser: string;
+    count: number;
+  }>;
+  operatingSystems: Array<{
+    os: string;
+    count: number;
+  }>;
+  devices: {
+    uniqueCount: number;
+  };
+  duration: {
+    avgMs: number | null;
+    minMs: number | null;
+    maxMs: number | null;
+  };
+  recentExecutions: Array<{
+    id: number;
+    status: string;
+    device_name: string | null;
+    device_serial: string | null;
+    browser_name: string | null;
+    os_name: string | null;
+    executed_at: string;
+    execution_duration_ms: number | null;
+    total_commands: number | null;
+    successful_commands: number | null;
+    failed_commands: number | null;
+    questnav_installed: boolean;
+    questnav_version: string | null;
+    failed_command_details: Array<{
+      description: string;
+      error: string;
+    }>;
+    client_ip: string | null;
+  }>;
+}
 
