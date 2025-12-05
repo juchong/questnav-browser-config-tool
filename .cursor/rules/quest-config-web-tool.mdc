@@ -1,0 +1,218 @@
+---
+description: Rules for working on the Quest Configuration Web Tool (React+Vite+TS frontend, Node+Express+TS backend, SQLite, Docker).
+globs:
+  - "frontend/**"
+  - "backend/**"
+  - "docker/**"
+  - "docker-compose.yml"
+  - "README.md"
+alwaysApply: true
+---
+
+# Quest Configuration Web Tool – Cursor Rules
+
+You are working on a **Quest configuration web tool** with this architecture:
+
+- Frontend: React + Vite + TypeScript (`frontend/`)
+- WebADB: `@yume-chan/adb` + `@yume-chan/adb-daemon-webusb`
+- Backend: Node.js + Express + TypeScript (`backend/`)
+- DB: SQLite (file on disk, containerized)
+- Containerization: Docker + Docker Compose
+
+Your primary goal is to **help build and maintain this tool safely and incrementally**.
+
+---
+
+## 1. General Behavior
+
+- Keep changes **small and focused**. Prefer incremental refactors over big-bang rewrites.
+- **Ask before**:
+  - Changing the high-level architecture (e.g., moving to a different framework or DB).
+  - Renaming or removing public APIs or routes.
+  - Introducing authentication/authorization flows.
+- Keep explanations **brief** and **actionable**; prioritize code diffs and commands over long essays.
+- When assumptions are needed, **state them explicitly** and confirm if they seem risky.
+- Support your actions with references obtained through searching online. 
+- Always present your approach to the user **before modifying files** and wait for their approval. 
+---
+
+## 2. Frontend (React + Vite + TypeScript)
+
+**Framework & structure**
+
+- Keep using **React + Vite + TypeScript**; do not replace with other frameworks unless explicitly asked.
+- Respect the existing structure under `frontend/src/`:
+  - `components/` for UI components.
+  - `services/` for API and ADB/WebUSB integrations.
+  - `App.tsx` and `main.tsx` as existing entry points.
+
+**TypeScript & code style**
+
+- Prefer **strict TypeScript**:
+  - Avoid `any` when possible; define proper types and interfaces.
+  - Keep props and API payloads typed and reusable (e.g., shared types in a `shared` or `models` module).
+- Maintain **clear separation**:
+  - UI components should not directly know low-level ADB details.
+  - Use service modules (`adbService.ts`, `apiService.ts`) as abstraction layers.
+
+**WebUSB / WebADB behavior**
+
+- Use **`@yume-chan/adb`** and **`@yume-chan/adb-daemon-webusb`** for ADB, not older WebADB libraries.
+- Do **not** introduce alternate ADB libraries unless explicitly requested.
+- Respect browser security constraints:
+  - All device access must go through **user gestures** (e.g., click handlers).
+  - Do not try to bypass WebUSB permission requirements.
+- Encapsulate ADB logic inside `adbService.ts` (or related services), exposing **high-level functions** like:
+  - `connectToDevice()`
+  - `applyProfile(profileId)`
+  - `runProfileCommands(commands)`
+
+**UX & error handling**
+
+- Frontend must:
+  - Provide **single-click configuration** for a selected profile.
+  - Show **connection status** and **progress** clearly.
+  - Surface ADB and API errors with **user-facing messages** and, where useful, a short troubleshooting hint.
+- Ensure UI is **responsive** for desktop, tablet, and mobile; reuse existing layout patterns when editing.
+
+---
+
+## 3. Backend (Node + Express + TypeScript)
+
+**Architecture & practices**
+
+- Keep backend in `backend/` with Express + TypeScript. Do not swap to Nest/Fastify/etc. without explicit instructions.
+- Respect existing route structure:
+  - Public:
+    - `GET /api/profiles`
+    - `GET /api/profiles/:id`
+    - `POST /api/logs`
+  - Admin:
+    - `POST /api/admin/profiles`
+    - `PUT /api/admin/profiles/:id`
+    - `DELETE /api/admin/profiles/:id`
+    - `GET /api/admin/logs`
+- When adding endpoints:
+  - Keep the `/api` and `/api/admin` split.
+  - Prefer REST-style naming consistent with existing routes.
+
+**Type safety & layering**
+
+- Use **TypeScript** with proper interfaces/types for:
+  - DB models (profiles, logs).
+  - API request/response bodies.
+- Keep a clear separation:
+  - **Routes**: request/response wiring and basic validation.
+  - **Services**: business logic (command profile handling, logging).
+  - **Database layer**: SQL or query wrappers.
+
+**Command safety & whitelisting**
+
+- All ADB commands sent to devices must be derived from a **server-side command whitelist**, stored in the `profiles` table.
+- Do **not** allow arbitrary shell/ADB strings from the client to be executed without sanitization.
+- Preserve and enhance, rather than bypass, the following principles:
+  - Commands are stored as **JSON** in `profiles.commands`.
+  - Frontend can only choose/parameterize existing profiles, not define raw command strings (that’s admin-only).
+- When extending Quest-specific commands (refresh rate, performance, display, privacy/telemetry, guardian, etc.):
+  - Add them as **new profiles or profile fields**.
+  - Keep them **data-driven**, not hardcoded deep inside the frontend.
+
+**Logging & analytics**
+
+- For execution logs:
+  - Use `execution_logs` table to record `profile_id`, `status`, and `error_message` where appropriate.
+  - Do not log sensitive information (e.g., device identifiers, secrets, full stack traces) unless asked.
+- When extending logging:
+  - Keep DB schema changes minimal and **backwards compatible** where possible.
+
+---
+
+## 4. Database (SQLite)
+
+**Schema & migrations**
+
+- Treat SQLite as the **canonical storage** for profiles and logs.
+- Existing schema:
+
+  - `profiles(id, name, description, commands, created_at, updated_at)`
+  - `execution_logs(id, profile_id, status, error_message, executed_at)`
+
+- When schema changes are needed:
+  - Propose a **migration plan** instead of editing DDL in random places.
+  - Use a **single migration path** (script or migration framework) rather than ad-hoc modifications sprinkled around.
+
+**Safety**
+
+- Do not hardcode absolute file paths for the DB; keep paths **configurable** (e.g., via env vars).
+- Ensure DB access code handles:
+  - Errors (e.g., locked DB) with retries or sensible messages.
+  - Parameterized queries to avoid SQL injection, even if current inputs seem safe.
+
+---
+
+## 5. Docker & Deployment
+
+**Development vs production**
+
+- **Development**:
+  - Assume frontend and backend may run separately (`npm run dev` for each).
+  - When generating dev instructions or scripts, keep the dev flow simple and close to:
+    - `cd backend && npm run dev`
+    - `cd frontend && npm run dev`
+- **Production**:
+  - One container should serve both:
+    - Node/Express backend API.
+    - Pre-built frontend static assets.
+  - Keep this combined deployment model unless explicitly asked to split.
+
+**Docker rules**
+
+- When editing `docker-compose.yml` or `docker/Dockerfile`:
+  - Preserve:
+    - SQLite volume mounts for persistent storage.
+    - Environment variables used for config (e.g., DB path, ports, Node env).
+  - Do not introduce new services (e.g., separate DB engine, Redis, etc.) unless explicitly requested.
+- If enabling HTTPS:
+  - Assume it may be handled by an **external reverse proxy** (Nginx/Traefik).
+  - Don’t force a specific proxy unless the user asks; instead, show how to integrate with either.
+
+---
+
+## 6. Security & WebUSB Constraints
+
+- Assume **HTTPS is required** in production for WebUSB / WebADB to work. Do not propose HTTP-only production deployment.
+- Enforce principles:
+  - **Input validation** for all admin endpoints that create or edit profiles.
+  - **Command whitelisting** on the backend; avoid generic shell execution helpers.
+  - Be cautious about log contents; avoid logging raw env vars or secrets.
+- Do **not** add authentication/authorization yet:
+  - If you see obvious risks, you may suggest where auth could be added later (e.g., wrapping `/api/admin/*`),
+    but **do not implement auth flows** unless explicitly asked.
+
+---
+
+## 7. Testing, DX, and Documentation
+
+- Prefer adding or updating **targeted tests** (unit or integration) around:
+  - Command profile parsing.
+  - API routes for profiles and logs.
+- When editing README or docs:
+  - Keep instructions aligned with:
+    - Dev flow (`npm run dev` in `frontend/` and `backend/`).
+    - Production flow (`docker-compose up -d`).
+  - Document new API endpoints and any DB schema changes you introduce.
+
+---
+
+## 8. What NOT to Do Without Permission
+
+Unless explicitly requested by the user, **do not**:
+
+- Replace React/Vite/TypeScript or Node/Express with other stacks.
+- Change the core DB engine (stay on SQLite).
+- Introduce new major infra (Kubernetes, separate DB containers, message queues, etc.).
+- Implement user authentication or authorization layers.
+- Remove or rename existing API endpoints or DB columns.
+- Add heavy dependencies for trivial tasks (e.g., full ORM just for one query).
+
+Focus on **helping evolve this specific Quest configuration tool** within the boundaries described above.

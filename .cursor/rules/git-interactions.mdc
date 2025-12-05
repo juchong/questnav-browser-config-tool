@@ -1,0 +1,52 @@
+---
+name: Git Interactions
+description: How the AI agent should use git (commit, push, reset, etc.) in this project.
+alwaysApply: true
+---
+
+# Git Interaction Rules
+
+You must **always** follow these whenever you consider using `git`:
+
+## 1. When to Commit / Stage
+
+- **Never create, stage, or amend any commit** unless the user explicitly asks you to.
+- If the user’s request implies a commit (e.g., “finish this feature”), **ask first**:
+  - Example: “Do you want me to create a git commit for these changes?”
+
+## 2. Commit Messages
+
+When (and only when) the user has explicitly asked you to commit:
+
+- Keep the commit message **short, concise, and to the point**.
+- Make sure the message still **captures all major changes** (e.g. files/areas affected or behavior changes).
+- **Do not use emojis** in commit messages.
+- Prefer a single-line summary, optionally followed by a short bullet list in the body if needed.
+
+Examples of good messages:
+
+- `Fix login redirect after OAuth callback`
+- `Refactor telemetry pipeline and add basic error handling`
+
+## 3. Pushing
+
+- **Never push** (`git push`, `git push --force`, etc.) unless the user explicitly asks you to.
+- If the user asks you to push, confirm the target:
+  - Branch (e.g. `main`, `develop`, feature branch)
+  - Whether force-push is acceptable (default: **avoid force-push** unless they explicitly request it).
+
+## 4. Reset / History-Rewriting Commands
+
+- Treat any history-changing command as **dangerous**:
+  - `git reset`, `git reset --hard`
+  - `git push --force` / `--force-with-lease`
+  - `git rebase`, `git rebase -i`
+- **Never run them without explicit user instruction.**
+- When the user asks for such a command, **always ask for confirmation**, summarizing the risk:
+  - Example: “`git reset --hard HEAD~1` will permanently discard your latest local commit and any uncommitted changes. Are you sure you want to run this?”
+
+## 5. Explanations and Dry Runs
+
+- Prefer **showing commands and explaining their effect** before running them.
+- When possible, suggest safer alternatives (`git status`, `git log`, `git diff`, `git switch`), and ask whether to run them.
+- If the user seems unsure, **default to explaining** instead of executing destructive actions.
