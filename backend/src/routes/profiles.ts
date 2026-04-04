@@ -1,6 +1,7 @@
 import express from 'express';
 import { profileDb } from '../services/database';
 import { ConfigProfile, ApiResponse } from '../models/types';
+import { safeErrorMessage } from '../utils/sanitization';
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ router.get('/', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -48,47 +49,7 @@ router.get('/count', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-    res.status(500).json(response);
-  }
-});
-
-// Get profile by ID (kept for logging purposes, but users will only get active profile)
-router.get('/:id', (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Invalid profile ID'
-      };
-      return res.status(400).json(response);
-    }
-
-    const profile = profileDb.getById(id);
-    if (!profile) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Profile not found'
-      };
-      return res.status(404).json(response);
-    }
-
-    const filteredProfile = {
-      ...profile,
-      commands: profile.commands.filter(cmd => !cmd.is_hidden)
-    };
-
-    const response: ApiResponse<ConfigProfile> = {
-      success: true,
-      data: filteredProfile
-    };
-    res.json(response);
-  } catch (error) {
-    const response: ApiResponse = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }

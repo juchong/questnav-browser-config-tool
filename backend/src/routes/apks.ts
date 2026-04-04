@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import { getApkPath, verifyApk, listCachedApks, downloadAndCacheApk } from '../services/apkService';
 import { apkReleaseDb } from '../services/database';
 import { ApiResponse } from '../models/types';
-import { sanitizeString } from '../utils/sanitization';
+import { sanitizeString, safeErrorMessage } from '../utils/sanitization';
 
 const router = express.Router();
 
@@ -102,7 +102,7 @@ router.get('/releases/available', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -168,7 +168,7 @@ router.post('/cache', apkCacheLimiter, async (req, res) => {
     console.error('Error caching APK:', error);
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -217,7 +217,7 @@ router.get('/status/:releaseTag', apkStatusLimiter, (req, res) => {
     console.error('Error checking APK status:', error);
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -264,7 +264,7 @@ router.get('/:hash', async (req, res) => {
     console.error('Error serving APK:', error);
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -282,7 +282,7 @@ router.get('/', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }

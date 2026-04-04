@@ -8,6 +8,7 @@ import { triggerManualDownload } from '../services/webhookService';
 import { backfillReleases, getBackfillStatus } from '../services/releaseBackfillService';
 import { requireAuth } from '../middleware/auth';
 import { ConfigProfile, ApiResponse, AdbCommand } from '../models/types';
+import { safeErrorMessage } from '../utils/sanitization';
 
 const router = express.Router();
 
@@ -93,7 +94,7 @@ router.get('/profiles', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -138,7 +139,7 @@ router.put('/profiles/:id/activate', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -167,7 +168,7 @@ router.post('/profiles', async (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -217,7 +218,7 @@ router.put('/profiles/:id', async (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -251,7 +252,7 @@ router.delete('/profiles/:id', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -271,7 +272,7 @@ router.get('/apk-releases', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -289,7 +290,7 @@ router.get('/apk-releases/latest', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -324,7 +325,7 @@ router.post('/apk-releases/:id/download', async (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -375,7 +376,7 @@ router.delete('/apk-releases/:id', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -389,7 +390,8 @@ router.post('/apks/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json(response);
     }
 
-    const displayName = (req.body.display_name as string)?.trim() || req.file.originalname;
+    const rawName = (req.body.display_name as string)?.trim() || req.file.originalname;
+    const displayName = rawName.replace(/[^\w.\- ]/g, '_').slice(0, 128);
 
     const result = await cacheUploadedApk(req.file.path, displayName);
     if (!result.success) {
@@ -425,7 +427,7 @@ router.post('/apks/upload', upload.single('file'), async (req, res) => {
     console.error('APK upload failed:', error);
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -445,9 +447,19 @@ router.post('/apk-releases', async (req, res) => {
       return res.status(400).json(response);
     }
 
-    // Validate URL
+    // Validate URL — require HTTPS and allowed domain
+    const ALLOWED_APK_DOMAINS = ['github.com', 'raw.githubusercontent.com', 'objects.githubusercontent.com'];
     try {
-      new URL(apk_url);
+      const parsed = new URL(apk_url);
+      if (parsed.protocol !== 'https:') {
+        const response: ApiResponse = { success: false, error: 'Only HTTPS URLs are allowed' };
+        return res.status(400).json(response);
+      }
+      const hostname = parsed.hostname.toLowerCase();
+      if (!ALLOWED_APK_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+        const response: ApiResponse = { success: false, error: `Domain not allowed. Allowed: ${ALLOWED_APK_DOMAINS.join(', ')}` };
+        return res.status(400).json(response);
+      }
     } catch {
       const response: ApiResponse = {
         success: false,
@@ -489,7 +501,7 @@ router.post('/apk-releases', async (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -528,7 +540,7 @@ router.post('/apk-releases/backfill', async (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -546,7 +558,7 @@ router.get('/apk-releases/backfill-status', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -566,7 +578,7 @@ router.get('/ignored-serials', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -584,7 +596,7 @@ router.get('/ignored-serials/available', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -621,7 +633,7 @@ router.post('/ignored-serials', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -656,7 +668,7 @@ router.delete('/ignored-serials/:id', (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }

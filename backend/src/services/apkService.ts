@@ -198,6 +198,20 @@ export async function cacheUploadedApk(tmpPath: string, originalName: string): P
       return { success: false, error: `File too large: ${stats.size} bytes (max: ${MAX_APK_SIZE})` };
     }
 
+    // Validate ZIP/APK magic bytes (PK\x03\x04)
+    const ZIP_MAGIC = Buffer.from([0x50, 0x4B, 0x03, 0x04]);
+    const headerBuf = Buffer.alloc(4);
+    const fd = fs.openSync(tmpPath, 'r');
+    try {
+      fs.readSync(fd, headerBuf, 0, 4, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (!headerBuf.subarray(0, 4).equals(ZIP_MAGIC)) {
+      fs.unlinkSync(tmpPath);
+      return { success: false, error: 'File is not a valid APK (bad magic bytes)' };
+    }
+
     const hash = await new Promise<string>((resolve, reject) => {
       const hashStream = crypto.createHash('sha256');
       const readStream = fs.createReadStream(tmpPath);

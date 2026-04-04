@@ -11,7 +11,8 @@ import {
   sanitizeBrowserFingerprint,
   sanitizeErrorMessage,
   validateJsonSize,
-  validateInteger
+  validateInteger,
+  safeErrorMessage
 } from '../utils/sanitization';
 
 const router = express.Router();
@@ -176,7 +177,7 @@ router.post('/', logCreationLimiter, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -195,7 +196,7 @@ router.get('/admin', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -223,7 +224,7 @@ router.get('/admin/profile/:profileId', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -241,7 +242,7 @@ router.get('/admin/stats', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -263,7 +264,7 @@ router.get('/admin/stats/extended', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -298,7 +299,7 @@ router.get('/admin/:id', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -319,7 +320,7 @@ router.get('/admin/device/:serial', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
@@ -337,7 +338,7 @@ router.get('/admin/devices', requireAuth, (req, res) => {
   } catch (error) {
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }

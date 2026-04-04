@@ -522,8 +522,9 @@ export const adbService = {
 
     const startTime = Date.now();
     const timestamp = new Date().toISOString();
-    // Use /data/local/tmp/ which has proper SELinux context for package installation
-    const tempPath = `/data/local/tmp/${apkName}`;
+    // Sanitize apkName: allow only alphanumeric, dash, underscore, dot
+    const safeName = apkName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128) || 'app.apk';
+    const tempPath = `/data/local/tmp/${safeName}`;
 
     try {
       // Stage 1: Download APK from backend (no CORS issues!)
@@ -570,6 +571,16 @@ export const adbService = {
       console.log('[APK DEBUG] File verification:', verifyResult);
       if (!verifyResult.success || !verifyResult.output || verifyResult.output.includes('No such file')) {
         throw new Error('APK was not uploaded successfully to device');
+      }
+
+      // Verify SHA256 on device matches expected hash
+      const hashResult = await this.executeCommand(`sha256sum "${tempPath}"`);
+      if (hashResult.success && hashResult.output) {
+        const deviceHash = hashResult.output.trim().split(/\s+/)[0]?.toLowerCase();
+        if (deviceHash && deviceHash !== apkHash.toLowerCase()) {
+          await this.executeCommand(`rm "${tempPath}"`);
+          throw new Error(`On-device hash mismatch: expected ${apkHash}, got ${deviceHash}`);
+        }
       }
 
       // Stage 3: Install APK using package manager

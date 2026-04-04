@@ -6,6 +6,7 @@
 import express from 'express';
 import { verifyGitHubSignature, processReleaseWebhook, GitHubReleaseWebhook } from '../services/webhookService';
 import { ApiResponse } from '../models/types';
+import { safeErrorMessage } from '../utils/sanitization';
 
 const router = express.Router();
 
@@ -77,20 +78,18 @@ router.post('/github', async (req, res) => {
     console.error('Error handling GitHub webhook:', error);
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }
 });
 
-// Health check for webhook endpoint and configuration status
+// Health check for webhook endpoint
 router.get('/github', (req, res) => {
-  const secretConfigured = !!process.env.GITHUB_WEBHOOK_SECRET;
   const response: ApiResponse = {
     success: true,
     data: {
-      message: 'GitHub webhook endpoint is ready',
-      secretConfigured
+      message: 'GitHub webhook endpoint is ready'
     }
   };
   res.json(response);
@@ -164,7 +163,7 @@ router.post('/github/test', async (req, res) => {
     console.error('Error handling test webhook:', error);
     const response: ApiResponse = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: safeErrorMessage(error)
     };
     res.status(500).json(response);
   }

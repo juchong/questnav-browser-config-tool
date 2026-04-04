@@ -41,7 +41,8 @@ async function fetchGitHubReleases(repo: string, perPage: number = 30): Promise<
       headers: {
         'User-Agent': 'QuestNav-Config-Tool',
         'Accept': 'application/vnd.github.v3+json'
-      }
+      },
+      signal: AbortSignal.timeout(30000)
     });
 
     if (!response.ok) {

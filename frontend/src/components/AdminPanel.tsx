@@ -104,23 +104,47 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const loadCachedReleases = async () => {
     try {
-      const response = await fetch('/api/admin/apk-releases', {
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        // Only include completed releases with hash
-        const completed = data.data
-          .filter((r: any) => r.download_status === 'completed' && r.apk_hash)
-          .map((r: any) => ({
-            id: r.id,
-            release_tag: r.release_tag,
-            apk_name: r.apk_name,
-            apk_hash: r.apk_hash,
-            apk_size: r.apk_size
-          }));
-        setCachedReleases(completed);
+      const [releasesRes, diskRes] = await Promise.all([
+        fetch('/api/admin/apk-releases', { credentials: 'include' }),
+        fetch('/api/apks')
+      ]);
+      const releasesData = await releasesRes.json();
+      const diskData = await diskRes.json();
+
+      const seenHashes = new Set<string>();
+      const merged: Array<{ id: number; release_tag: string; apk_name: string; apk_hash: string; apk_size: number }> = [];
+
+      if (releasesData.success) {
+        for (const r of releasesData.data) {
+          if (r.download_status === 'completed' && r.apk_hash) {
+            seenHashes.add(r.apk_hash);
+            merged.push({
+              id: r.id,
+              release_tag: r.release_tag,
+              apk_name: r.apk_name,
+              apk_hash: r.apk_hash,
+              apk_size: r.apk_size
+            });
+          }
+        }
       }
+
+      if (diskData.success) {
+        for (const apk of diskData.data) {
+          if (apk.hash && !seenHashes.has(apk.hash)) {
+            seenHashes.add(apk.hash);
+            merged.push({
+              id: -1,
+              release_tag: 'cached',
+              apk_name: apk.name || `${apk.hash.slice(0, 12)}.apk`,
+              apk_hash: apk.hash,
+              apk_size: apk.size || 0
+            });
+          }
+        }
+      }
+
+      setCachedReleases(merged);
     } catch (err) {
       console.error('Failed to load cached releases:', err);
     }
@@ -164,6 +188,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   };
 
   const handleCreateNew = () => {
+    loadCachedReleases();
     setEditingProfile({
       name: '',
       description: '',
@@ -173,6 +198,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   };
 
   const handleEdit = (profile: ConfigProfile) => {
+    loadCachedReleases();
     setEditingProfile({ ...profile });
     setIsCreating(false);
   };
@@ -256,6 +282,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const addAppInstallCommand = () => {
     if (!editingProfile) return;
+    loadCachedReleases();
     
     setEditingProfile({
       ...editingProfile,

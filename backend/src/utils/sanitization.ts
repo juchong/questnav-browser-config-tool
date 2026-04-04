@@ -116,3 +116,14 @@ export function sanitizeErrorMessage(error: string): string {
   return sanitizeString(sanitized, 2000);
 }
 
+/**
+ * Return a safe error message for API responses.
+ * In production, returns a generic string to avoid leaking internal details.
+ */
+export function safeErrorMessage(error: unknown): string {
+  if (process.env.NODE_ENV === 'development') {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+  return 'Internal server error';
+}
+

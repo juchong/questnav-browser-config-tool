@@ -21,7 +21,7 @@ export default function ApkReleasesPanel() {
   const [releases, setReleases] = useState<ApkRelease[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [webhookInfo, setWebhookInfo] = useState<{ secretConfigured: boolean } | null>(null);
+  const [webhookInfo, setWebhookInfo] = useState<{ ready: boolean } | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<{ hasReleases: boolean; releaseCount: number; completedCount: number } | null>(null);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
@@ -57,10 +57,12 @@ export default function ApkReleasesPanel() {
 
   const checkWebhookStatus = async () => {
     try {
-      const response = await fetch('/api/webhooks/github');
+      const response = await fetch('/api/webhooks/github', {
+        credentials: 'include'
+      });
       const data = await response.json();
       if (data.success) {
-        setWebhookInfo(data.data);
+        setWebhookInfo({ ready: true });
       }
     } catch (err) {
       console.error('Failed to check webhook status:', err);
@@ -223,22 +225,22 @@ export default function ApkReleasesPanel() {
       <div style={{
         padding: '1rem',
         borderRadius: '6px',
-        backgroundColor: webhookInfo?.secretConfigured ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-        border: `1px solid ${webhookInfo?.secretConfigured ? '#10b981' : '#f59e0b'}`,
+        backgroundColor: webhookInfo?.ready ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+        border: `1px solid ${webhookInfo?.ready ? '#10b981' : '#f59e0b'}`,
         marginBottom: '1rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <span style={{ fontSize: '1.2rem' }}>
-            {webhookInfo?.secretConfigured ? '✓' : '⚠'}
+            {webhookInfo?.ready ? '✓' : '⚠'}
           </span>
           <strong>
-            {webhookInfo?.secretConfigured ? 'Webhook Configured' : 'Webhook Not Configured'}
+            {webhookInfo?.ready ? 'Webhook Endpoint Active' : 'Webhook Status Unknown'}
           </strong>
         </div>
         <p style={{ fontSize: '0.875rem', opacity: 0.8, margin: 0 }}>
-          {webhookInfo?.secretConfigured
-            ? 'GitHub webhooks will automatically detect new QuestNav releases.'
-            : 'Configure GITHUB_WEBHOOK_SECRET in environment variables to enable automatic detection.'}
+          {webhookInfo?.ready
+            ? 'GitHub webhook endpoint is ready. Ensure GITHUB_WEBHOOK_SECRET is configured for automatic release detection.'
+            : 'Unable to reach webhook endpoint.'}
         </p>
         <details style={{ marginTop: '0.75rem', fontSize: '0.875rem' }}>
           <summary style={{ cursor: 'pointer', fontWeight: '500' }}>Setup Instructions</summary>
