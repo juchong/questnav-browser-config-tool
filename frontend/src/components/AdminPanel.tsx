@@ -558,8 +558,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 padding: '0.5rem',
                 fontSize: '1rem',
                 borderRadius: '4px',
-                border: '1px solid #444',
-                backgroundColor: '#1a1a1a',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg)',
                 color: 'inherit'
               }}
             />
@@ -576,8 +576,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 padding: '0.5rem',
                 fontSize: '1rem',
                 borderRadius: '4px',
-                border: '1px solid #444',
-                backgroundColor: '#1a1a1a',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg)',
                 color: 'inherit',
                 resize: 'vertical'
               }}
@@ -629,7 +629,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             
             {editingProfile.commands.map((cmd, idx) => (
               <div key={idx} style={{ 
-                border: '1px solid #444', 
+                border: '1px solid var(--border-color)', 
                 borderRadius: '4px', 
                 padding: '1rem', 
                 marginBottom: '1rem', 
@@ -752,8 +752,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     padding: '0.5rem',
                     fontSize: '0.9rem',
                     borderRadius: '4px',
-                    border: '1px solid #444',
-                    backgroundColor: '#1a1a1a',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--card-bg)',
                     color: 'inherit',
                     marginBottom: '0.5rem'
                   }}
@@ -770,8 +770,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     padding: '0.5rem',
                     fontSize: '0.9rem',
                     borderRadius: '4px',
-                    border: '1px solid #444',
-                    backgroundColor: '#1a1a1a',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--card-bg)',
                     color: 'inherit',
                     fontFamily: 'monospace',
                     marginBottom: '0.5rem'
@@ -829,8 +829,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     padding: '0.5rem',
                     fontSize: '0.9rem',
                     borderRadius: '4px',
-                    border: '1px solid #444',
-                    backgroundColor: '#1a1a1a',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--card-bg)',
                     color: 'inherit',
                     marginBottom: '0.5rem'
                   }}
@@ -952,8 +952,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         padding: '0.5rem',
                         fontSize: '0.9rem',
                         borderRadius: '4px',
-                        border: '1px solid #444',
-                        backgroundColor: '#1a1a1a',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--card-bg)',
                         color: 'inherit',
                         marginBottom: '0.5rem'
                       }}

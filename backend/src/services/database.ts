@@ -17,6 +17,7 @@ const db: DatabaseType = new Database(dbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
+db.pragma('journal_mode = WAL');
 
 // Initialize database schema
 function initializeDatabase() {
@@ -164,7 +165,7 @@ function initializeDatabase() {
   }
 
   // Initialize admin user from environment variables
-  initializeAdminUser();
+  initializeAdminUser().catch(err => console.error('Failed to initialize admin user:', err));
 }
 
 function insertDefaultProfile() {

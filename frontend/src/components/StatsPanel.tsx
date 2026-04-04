@@ -195,8 +195,8 @@ export default function StatsPanel({
                     key={device.serial}
                     onClick={() => onAddIgnoredSerial(device.serial, device.device_name)}
                     style={{
-                      backgroundColor: 'var(--card-bg, #2a2a2a)',
-                      border: '1px solid var(--border-color, #444)',
+                      backgroundColor: 'var(--card-bg)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '4px',
                       padding: '0.375rem 0.75rem',
                       fontSize: '0.75rem',
@@ -232,16 +232,16 @@ export default function StatsPanel({
         }}>
           <div style={{ 
             padding: '1rem', 
-            backgroundColor: 'var(--card-bg, #1a1a1a)', 
+            backgroundColor: 'var(--card-bg)', 
             borderRadius: '8px',
-            border: '1px solid var(--border-color, #333)'
+            border: '1px solid var(--border-color)'
           }}>
             <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{basicStats.total}</div>
             <div style={{ opacity: 0.7, fontSize: '0.875rem' }}>Total Executions</div>
           </div>
           <div style={{ 
             padding: '1rem', 
-            backgroundColor: 'var(--card-bg, #1a1a1a)', 
+            backgroundColor: 'var(--card-bg)', 
             borderRadius: '8px',
             border: '1px solid #4ade8040'
           }}>
@@ -250,7 +250,7 @@ export default function StatsPanel({
           </div>
           <div style={{ 
             padding: '1rem', 
-            backgroundColor: 'var(--card-bg, #1a1a1a)', 
+            backgroundColor: 'var(--card-bg)', 
             borderRadius: '8px',
             border: '1px solid #ef444440'
           }}>
@@ -259,9 +259,9 @@ export default function StatsPanel({
           </div>
           <div style={{ 
             padding: '1rem', 
-            backgroundColor: 'var(--card-bg, #1a1a1a)', 
+            backgroundColor: 'var(--card-bg)', 
             borderRadius: '8px',
-            border: '1px solid var(--border-color, #333)'
+            border: '1px solid var(--border-color)'
           }}>
             <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{basicStats.successRate.toFixed(1)}%</div>
             <div style={{ opacity: 0.7, fontSize: '0.875rem' }}>Success Rate</div>
@@ -376,9 +376,9 @@ export default function StatsPanel({
                   <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Daily Activity</h3>
                   <div style={{ 
                     display: 'flex',
-                    backgroundColor: 'var(--card-bg, #1a1a1a)',
+                    backgroundColor: 'var(--card-bg)',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color, #333)',
+                    border: '1px solid var(--border-color)',
                     padding: '0.75rem'
                   }}>
                     {/* Y-axis label */}
@@ -418,8 +418,8 @@ export default function StatsPanel({
                       gap: '2px',
                       flex: 1,
                       height: '100px',
-                      borderLeft: '1px solid var(--border-color, #444)',
-                      borderBottom: '1px solid var(--border-color, #444)',
+                      borderLeft: '1px solid var(--border-color)',
+                      borderBottom: '1px solid var(--border-color)',
                       paddingLeft: '4px',
                       overflowX: 'auto'
                     }}>
@@ -531,9 +531,9 @@ export default function StatsPanel({
                   <div>
                     <h3 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Browsers</h3>
                     <div style={{ 
-                      backgroundColor: 'var(--card-bg, #1a1a1a)',
+                      backgroundColor: 'var(--card-bg)',
                       borderRadius: '8px',
-                      border: '1px solid var(--border-color, #333)',
+                      border: '1px solid var(--border-color)',
                       padding: '0.75rem'
                     }}>
                       {extendedStats.browsers.slice(0, 5).map((b, idx) => (
@@ -571,9 +571,9 @@ export default function StatsPanel({
                   <div>
                     <h3 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Operating Systems</h3>
                     <div style={{ 
-                      backgroundColor: 'var(--card-bg, #1a1a1a)',
+                      backgroundColor: 'var(--card-bg)',
                       borderRadius: '8px',
-                      border: '1px solid var(--border-color, #333)',
+                      border: '1px solid var(--border-color)',
                       padding: '0.75rem'
                     }}>
                       {extendedStats.operatingSystems.slice(0, 5).map((o, idx) => (
@@ -612,9 +612,9 @@ export default function StatsPanel({
                 <div>
                   <h3 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Recent Activity</h3>
                   <div style={{ 
-                    backgroundColor: 'var(--card-bg, #1a1a1a)',
+                    backgroundColor: 'var(--card-bg)',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color, #333)',
+                    border: '1px solid var(--border-color)',
                     overflow: 'hidden'
                   }}>
                     {/* Table Header */}
@@ -624,7 +624,7 @@ export default function StatsPanel({
                       gap: '1rem',
                       padding: '0.75rem 1rem',
                       backgroundColor: 'rgba(255,255,255,0.03)',
-                      borderBottom: '1px solid var(--border-color, #333)',
+                      borderBottom: '1px solid var(--border-color)',
                       fontSize: '0.7rem',
                       fontWeight: 600,
                       opacity: 0.6,
@@ -662,7 +662,7 @@ export default function StatsPanel({
                             gap: '1rem',
                             alignItems: 'center',
                             padding: '0.75rem 1rem',
-                            borderBottom: idx < extendedStats.recentExecutions.length - 1 ? '1px solid var(--border-color, #333)' : 'none',
+                            borderBottom: idx < extendedStats.recentExecutions.length - 1 ? '1px solid var(--border-color)' : 'none',
                             fontSize: '0.8125rem',
                             textAlign: 'center'
                           }}

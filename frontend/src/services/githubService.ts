@@ -61,22 +61,6 @@ export const githubService = {
       console.error('Failed to get APK URL:', error);
       return null;
     }
-  },
-
-  /**
-   * Fetch all releases (for admin to choose specific version)
-   */
-  async getAllReleases(): Promise<GitHubRelease[]> {
-    try {
-      const response = await fetch(`${GITHUB_API_BASE}/repos/${QUESTNAV_REPO}/releases?per_page=10`);
-      if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Failed to fetch QuestNav releases:', error);
-      return [];
-    }
   }
 };
 

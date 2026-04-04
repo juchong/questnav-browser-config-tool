@@ -20,7 +20,7 @@ export const api = {
 
   // Admin endpoints
   async getAllProfiles(): Promise<ConfigProfile[]> {
-    const response = await fetch(`${API_BASE}/admin/profiles`);
+    const response = await fetch(`${API_BASE}/admin/profiles`, { credentials: 'include' });
     const data: ApiResponse<ConfigProfile[]> = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch all profiles');
     return data.data!;
@@ -28,7 +28,8 @@ export const api = {
 
   async setActiveProfile(id: number): Promise<ConfigProfile> {
     const response = await fetch(`${API_BASE}/admin/profiles/${id}/activate`, {
-      method: 'PUT'
+      method: 'PUT',
+      credentials: 'include'
     });
     const data: ApiResponse<ConfigProfile> = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to set active profile');
@@ -39,6 +40,7 @@ export const api = {
     const response = await fetch(`${API_BASE}/admin/profiles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(profile)
     });
     const data: ApiResponse<ConfigProfile> = await response.json();
@@ -50,6 +52,7 @@ export const api = {
     const response = await fetch(`${API_BASE}/admin/profiles/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(profile)
     });
     const data: ApiResponse<ConfigProfile> = await response.json();
@@ -59,7 +62,8 @@ export const api = {
 
   async deleteProfile(id: number): Promise<void> {
     const response = await fetch(`${API_BASE}/admin/profiles/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      credentials: 'include'
     });
     const data: ApiResponse = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to delete profile');
@@ -70,6 +74,7 @@ export const api = {
     const response = await fetch(`${API_BASE}/logs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(log)
     });
     const data: ApiResponse = await response.json();
@@ -78,21 +83,21 @@ export const api = {
 
   async getLogs(limit?: number): Promise<ExecutionLog[]> {
     const url = limit ? `${API_BASE}/logs/admin?limit=${limit}` : `${API_BASE}/logs/admin`;
-    const response = await fetch(url);
+    const response = await fetch(url, { credentials: 'include' });
     const data: ApiResponse<ExecutionLog[]> = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch logs');
     return data.data!;
   },
 
   async getStats(): Promise<any> {
-    const response = await fetch(`${API_BASE}/logs/admin/stats`);
+    const response = await fetch(`${API_BASE}/logs/admin/stats`, { credentials: 'include' });
     const data: ApiResponse = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch stats');
     return data.data;
   },
 
   async getExtendedStats(days: number = 30): Promise<ExtendedStats> {
-    const response = await fetch(`${API_BASE}/logs/admin/stats/extended?days=${days}`);
+    const response = await fetch(`${API_BASE}/logs/admin/stats/extended?days=${days}`, { credentials: 'include' });
     const data: ApiResponse<ExtendedStats> = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch extended stats');
     return data.data!;
@@ -100,14 +105,14 @@ export const api = {
 
   // Ignored serials management
   async getIgnoredSerials(): Promise<IgnoredSerial[]> {
-    const response = await fetch(`${API_BASE}/admin/ignored-serials`);
+    const response = await fetch(`${API_BASE}/admin/ignored-serials`, { credentials: 'include' });
     const data: ApiResponse<IgnoredSerial[]> = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch ignored serials');
     return data.data!;
   },
 
   async getAvailableSerials(): Promise<AvailableSerial[]> {
-    const response = await fetch(`${API_BASE}/admin/ignored-serials/available`);
+    const response = await fetch(`${API_BASE}/admin/ignored-serials/available`, { credentials: 'include' });
     const data: ApiResponse<AvailableSerial[]> = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to fetch available serials');
     return data.data!;
@@ -117,6 +122,7 @@ export const api = {
     const response = await fetch(`${API_BASE}/admin/ignored-serials`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ serial, label })
     });
     const data: ApiResponse<IgnoredSerial> = await response.json();
@@ -126,7 +132,8 @@ export const api = {
 
   async removeIgnoredSerial(id: number): Promise<void> {
     const response = await fetch(`${API_BASE}/admin/ignored-serials/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      credentials: 'include'
     });
     const data: ApiResponse = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to remove ignored serial');

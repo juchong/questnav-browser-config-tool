@@ -45,11 +45,14 @@ export function verifyGitHubSignature(payload: string, signature: string, secret
     .update(payload)
     .digest('hex');
 
-  // Use timing-safe comparison to prevent timing attacks
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedSignature),
-    Buffer.from(computedSignature)
-  );
+  const expectedBuf = Buffer.from(expectedSignature);
+  const computedBuf = Buffer.from(computedSignature);
+
+  if (expectedBuf.length !== computedBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuf, computedBuf);
 }
 
 /**

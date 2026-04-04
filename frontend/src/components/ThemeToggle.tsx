@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useTheme } from '../hooks/useTheme';
 
 const MoonIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -21,33 +21,7 @@ const SunIcon = () => (
 );
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    // Check localStorage first
-    const stored = localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark') {
-      return stored;
-    }
-    // Fall back to system preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    
-    // Apply theme to document root
-    if (theme === 'dark') {
-      root.setAttribute('data-theme', 'dark');
-    } else {
-      root.setAttribute('data-theme', 'light');
-    }
-    
-    // Save to localStorage
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <button
@@ -74,4 +48,3 @@ export default function ThemeToggle() {
     </button>
   );
 }
-

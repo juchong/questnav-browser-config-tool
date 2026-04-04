@@ -119,7 +119,7 @@ export async function backfillReleases(options: {
           release_name: release.name || release.tag_name,
           apk_name: apkAsset.name,
           apk_url: apkAsset.browser_download_url,
-          download_status: autoDownload ? 'pending' : 'pending',
+          download_status: 'pending',
           published_at: release.published_at,
           source: 'poll'
         });

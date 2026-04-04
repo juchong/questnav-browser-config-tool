@@ -75,9 +75,14 @@ router.get('/:id', (req, res) => {
       return res.status(404).json(response);
     }
 
+    const filteredProfile = {
+      ...profile,
+      commands: profile.commands.filter(cmd => !cmd.is_hidden)
+    };
+
     const response: ApiResponse<ConfigProfile> = {
       success: true,
-      data: profile
+      data: filteredProfile
     };
     res.json(response);
   } catch (error) {

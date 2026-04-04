@@ -11,9 +11,9 @@ function parseUserAgent(userAgent: string): { name: string; version: string; eng
   let browserVersion = 'Unknown';
   let browserEngine = 'Unknown';
 
-  // Chrome
-  if (ua.includes('chrome') && !ua.includes('edg')) {
-    browserName = 'Chrome';
+  // Brave (check first - Brave's UA contains "Chrome")
+  if ((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function') {
+    browserName = 'Brave';
     const match = ua.match(/chrome\/([\d.]+)/);
     browserVersion = match ? match[1] : 'Unknown';
     browserEngine = 'Blink';
@@ -22,6 +22,20 @@ function parseUserAgent(userAgent: string): { name: string; version: string; eng
   else if (ua.includes('edg')) {
     browserName = 'Edge';
     const match = ua.match(/edg\/([\d.]+)/);
+    browserVersion = match ? match[1] : 'Unknown';
+    browserEngine = 'Blink';
+  }
+  // Opera
+  else if (ua.includes('opr') || ua.includes('opera')) {
+    browserName = 'Opera';
+    const match = ua.match(/(?:opr|opera)\/([\d.]+)/);
+    browserVersion = match ? match[1] : 'Unknown';
+    browserEngine = 'Blink';
+  }
+  // Chrome
+  else if (ua.includes('chrome')) {
+    browserName = 'Chrome';
+    const match = ua.match(/chrome\/([\d.]+)/);
     browserVersion = match ? match[1] : 'Unknown';
     browserEngine = 'Blink';
   }
@@ -38,20 +52,6 @@ function parseUserAgent(userAgent: string): { name: string; version: string; eng
     const match = ua.match(/version\/([\d.]+)/);
     browserVersion = match ? match[1] : 'Unknown';
     browserEngine = 'WebKit';
-  }
-  // Opera
-  else if (ua.includes('opr') || ua.includes('opera')) {
-    browserName = 'Opera';
-    const match = ua.match(/(?:opr|opera)\/([\d.]+)/);
-    browserVersion = match ? match[1] : 'Unknown';
-    browserEngine = 'Blink';
-  }
-  // Brave (harder to detect, often shows as Chrome)
-  else if ((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function') {
-    browserName = 'Brave';
-    const match = ua.match(/chrome\/([\d.]+)/);
-    browserVersion = match ? match[1] : 'Unknown';
-    browserEngine = 'Blink';
   }
 
   return { name: browserName, version: browserVersion, engine: browserEngine };

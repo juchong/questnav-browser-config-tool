@@ -224,7 +224,7 @@ router.get('/status/:releaseTag', apkStatusLimiter, (req, res) => {
 });
 
 // Serve APK file by hash
-router.get('/:hash', (req, res) => {
+router.get('/:hash', async (req, res) => {
   try {
     const { hash } = req.params;
     
@@ -248,7 +248,7 @@ router.get('/:hash', (req, res) => {
     }
     
     // Verify integrity
-    if (!verifyApk(hash)) {
+    if (!await verifyApk(hash)) {
       const response: ApiResponse = {
         success: false,
         error: 'APK verification failed'

@@ -86,37 +86,6 @@ export function sanitizeBrowserFingerprint(fingerprint: string): string {
 }
 
 /**
- * Validate IP address format (basic check)
- */
-export function isValidIpFormat(ip: string): boolean {
-  if (typeof ip !== 'string') {
-    return false;
-  }
-  
-  // IPv4 pattern
-  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
-  // IPv6 pattern (simplified)
-  const ipv6Pattern = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
-  
-  return ipv4Pattern.test(ip) || ipv6Pattern.test(ip);
-}
-
-/**
- * Sanitize URL parameters
- */
-export function sanitizeUrlParam(param: string): string {
-  if (typeof param !== 'string') {
-    return '';
-  }
-  
-  // Remove any attempts at path traversal
-  let sanitized = param.replace(/\.\./g, '');
-  sanitized = sanitized.replace(/[<>"|\\]/g, '');
-  
-  return sanitized.trim().substring(0, 500);
-}
-
-/**
  * Validate integer within range
  */
 export function validateInteger(value: any, min: number, max: number): number | null {

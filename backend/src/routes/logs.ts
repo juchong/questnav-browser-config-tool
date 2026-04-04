@@ -93,7 +93,7 @@ router.post('/', logCreationLimiter, (req, res) => {
     }
 
     // Extract and sanitize client metadata from request
-    const clientIp = sanitizeString((req.ip || req.connection.remoteAddress || 'unknown'), 100);
+    const clientIp = sanitizeString((req.ip || req.socket.remoteAddress || 'unknown'), 100);
     const userAgent = sanitizeString((req.headers['user-agent'] || 'unknown'), 500);
 
     // Calculate execution duration if timestamps provided
@@ -185,7 +185,7 @@ router.post('/', logCreationLimiter, (req, res) => {
 // Get all logs (admin)
 router.get('/admin', requireAuth, (req, res) => {
   try {
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const limit = Math.min(1000, Math.max(1, req.query.limit ? parseInt(req.query.limit as string) || 100 : 100));
     const logs = logDb.getAll(limit);
     const response: ApiResponse<ExecutionLog[]> = {
       success: true,
@@ -213,7 +213,7 @@ router.get('/admin/profile/:profileId', requireAuth, (req, res) => {
       return res.status(400).json(response);
     }
 
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const limit = Math.min(1000, Math.max(1, req.query.limit ? parseInt(req.query.limit as string) || 50 : 50));
     const logs = logDb.getByProfileId(profileId, limit);
     const response: ApiResponse<ExecutionLog[]> = {
       success: true,
@@ -308,7 +308,7 @@ router.get('/admin/:id', requireAuth, (req, res) => {
 router.get('/admin/device/:serial', requireAuth, (req, res) => {
   try {
     const deviceSerial = req.params.serial;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const limit = Math.min(1000, Math.max(1, req.query.limit ? parseInt(req.query.limit as string) || 50 : 50));
     
     const logs = logDb.getByDeviceSerial(deviceSerial, limit);
     const response: ApiResponse<ExecutionLog[]> = {
