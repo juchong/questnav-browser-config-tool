@@ -13,22 +13,14 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
   // Filter out hidden commands
   const visibleCommands = commands.filter(cmd => !cmd.is_hidden);
   
-  // Check if profile already has an app_install command
-  const hasAppInstall = commands.some(cmd => cmd.category === 'app_install');
+  // Check if profile already has a QuestNav-specific app_install command
+  const hasQuestNavInstall = commands.some(
+    cmd => cmd.category === 'app_install' && cmd.requires_questnav === 'with'
+  );
   
-  // Calculate total commands based on includeQuestNav state
-  let totalCommands: number;
-  
-  if (includeQuestNav) {
-    // User wants to install: count all visible commands + QuestNav if not already present
-    totalCommands = hasAppInstall ? visibleCommands.length : visibleCommands.length + 1;
-  } else {
-    // User doesn't want to install: exclude app_install commands from count
-    totalCommands = visibleCommands.filter(cmd => cmd.category !== 'app_install').length;
-  }
-  
-  // Only show QuestNav in the table if user opted in AND profile doesn't already have app_install
-  const shouldShowQuestNav = includeQuestNav && !hasAppInstall;
+  // All visible commands always count; add 1 for dynamic QuestNav row if applicable
+  const shouldShowQuestNav = includeQuestNav && !hasQuestNavInstall;
+  const totalCommands = visibleCommands.length + (shouldShowQuestNav ? 1 : 0);
 
   const getCategoryLabel = (category: string): string => {
     const labels: Record<string, string> = {
@@ -173,13 +165,10 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
                 </tr>
               </thead>
               <tbody>
-                {/* Regular commands */}
-                {visibleCommands
-                  .filter(cmd => includeQuestNav || cmd.category !== 'app_install')
-                  .map((cmd, idx) => {
-                    // Calculate proper index considering filtered commands
+                {/* Regular commands — all visible commands shown regardless of category */}
+                {visibleCommands.map((cmd, idx) => {
                     const displayIndex = idx + 1;
-                    const isLastCommand = idx === visibleCommands.filter(c => includeQuestNav || c.category !== 'app_install').length - 1;
+                    const isLastCommand = idx === visibleCommands.length - 1;
                     
                     return (
                       <tr 
@@ -220,13 +209,13 @@ export default function CommandPreview({ commands, includeQuestNav, questNavInfo
                     );
                   })}
 
-                {/* QuestNav APK if included (and profile doesn't already have app_install) - show at END */}
+                {/* QuestNav APK if user opted in and no QuestNav-specific install exists — appended at END */}
                 {shouldShowQuestNav && questNavInfo && (
                   <tr style={{
                     borderBottom: 'none'
                   }}>
                     <td style={{ padding: '0.75rem', opacity: 0.7 }}>
-                      {visibleCommands.filter(cmd => includeQuestNav || cmd.category !== 'app_install').length + 1}
+                      {visibleCommands.length + 1}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <span style={{

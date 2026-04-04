@@ -851,7 +851,7 @@ export interface ApkRelease {
   published_at?: string;
   detected_at?: string;
   downloaded_at?: string;
-  source: 'webhook' | 'manual' | 'poll';
+  source: 'webhook' | 'manual' | 'poll' | 'upload';
 }
 
 export const apkReleaseDb = {

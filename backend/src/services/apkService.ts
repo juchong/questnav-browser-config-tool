@@ -186,6 +186,54 @@ export function deleteApk(hash: string): boolean {
   }
 }
 
+/**
+ * Cache an APK that was uploaded directly (multipart form).
+ * Computes SHA256 from the temp file, renames into the cache, writes metadata.
+ */
+export async function cacheUploadedApk(tmpPath: string, originalName: string): Promise<ApkDownloadResult> {
+  try {
+    const stats = fs.statSync(tmpPath);
+    if (stats.size > MAX_APK_SIZE) {
+      fs.unlinkSync(tmpPath);
+      return { success: false, error: `File too large: ${stats.size} bytes (max: ${MAX_APK_SIZE})` };
+    }
+
+    const hash = await new Promise<string>((resolve, reject) => {
+      const hashStream = crypto.createHash('sha256');
+      const readStream = fs.createReadStream(tmpPath);
+      readStream.on('data', (chunk) => hashStream.update(chunk));
+      readStream.on('end', () => resolve(hashStream.digest('hex')));
+      readStream.on('error', reject);
+    });
+
+    const filePath = path.join(APK_DIR, `${hash}.apk`);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(tmpPath);
+      console.log(`Uploaded APK already cached: ${hash}`);
+    } else {
+      fs.renameSync(tmpPath, filePath);
+      console.log(`Uploaded APK cached: ${hash} (${stats.size} bytes)`);
+    }
+
+    const metadataPath = path.join(APK_DIR, `${hash}.json`);
+    fs.writeFileSync(metadataPath, JSON.stringify({
+      hash,
+      originalUrl: '',
+      name: originalName,
+      size: stats.size,
+      downloadedAt: new Date().toISOString(),
+      source: 'upload'
+    }, null, 2));
+
+    return { success: true, hash, filePath, size: stats.size };
+  } catch (error) {
+    try { fs.unlinkSync(tmpPath); } catch {}
+    console.error('APK upload cache failed:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export function listCachedApks(): Array<{ hash: string; size: number; name?: string }> {
   try {
     const files = fs.readdirSync(APK_DIR);

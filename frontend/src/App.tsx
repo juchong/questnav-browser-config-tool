@@ -231,23 +231,23 @@ function App() {
       return true;
     });
     
-    // If user opted in for QuestNav, add it at the end (unless admin already added it)
-    if (installQuestNav) {
-      const hasQuestNavInstall = allCommands.some(cmd => cmd.category === 'app_install');
-      if (!hasQuestNavInstall && selectedApkHash) {
-        // Use the selected cached APK - add at the END
+    // If user opted in for QuestNav, add a dynamic install at the end
+    // (only if no QuestNav-specific app_install already exists in the profile)
+    if (installQuestNav && selectedApkHash) {
+      const hasQuestNavInstall = allCommands.some(
+        cmd => cmd.category === 'app_install' && cmd.requires_questnav === 'with'
+      );
+      if (!hasQuestNavInstall) {
         allCommands.push({
           command: 'install_apk',
           description: `Install QuestNav APK`,
           category: 'app_install',
           apk_url: `/api/apks/${selectedApkHash}`,
           apk_name: 'QuestNav.apk',
-          apk_hash: selectedApkHash
+          apk_hash: selectedApkHash,
+          requires_questnav: 'with'
         });
       }
-    } else {
-      // If user opted out, filter out any app_install commands from the profile
-      allCommands = allCommands.filter(cmd => cmd.category !== 'app_install');
     }
 
     if (allCommands.length === 0) {

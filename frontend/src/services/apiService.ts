@@ -137,6 +137,21 @@ export const api = {
     });
     const data: ApiResponse = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to remove ignored serial');
+  },
+
+  async uploadApk(file: File, displayName?: string): Promise<{ hash: string; size: number; name: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (displayName) formData.append('display_name', displayName);
+
+    const response = await fetch(`${API_BASE}/admin/apks/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    const data: ApiResponse<{ hash: string; size: number; name: string }> = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to upload APK');
+    return data.data!;
   }
 };
 

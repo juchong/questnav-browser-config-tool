@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ConfigProfile, AdbCommand } from '../types';
 import { api, IgnoredSerial, AvailableSerial } from '../services/apiService';
-import { githubService } from '../services/githubService';
 import ApkReleasesPanel from './ApkReleasesPanel';
 import StatsPanel from './StatsPanel';
 
@@ -255,22 +254,19 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     });
   };
 
-  const addAppInstallCommand = async () => {
+  const addAppInstallCommand = () => {
     if (!editingProfile) return;
-    
-    // Try to fetch latest QuestNav APK info
-    const latestApk = await githubService.getLatestApkUrl();
     
     setEditingProfile({
       ...editingProfile,
       commands: [
         ...editingProfile.commands,
         { 
-          command: 'install_apk', // Placeholder command, actual installation handled by frontend
-          description: latestApk ? `Install ${latestApk.name} (${latestApk.version})` : 'Install APK', 
+          command: 'install_apk',
+          description: 'Install APK', 
           category: 'app_install',
-          apk_url: latestApk?.url || '',
-          apk_name: latestApk?.name || 'app.apk'
+          apk_url: '',
+          apk_name: ''
         }
       ]
     });
@@ -937,12 +933,23 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         
                         if (selectedRelease) {
                           const newCommands = [...editingProfile.commands];
+                          const autoDesc = cmd.description === 'Install APK' || !cmd.description;
                           newCommands[idx] = {
                             ...newCommands[idx],
                             apk_hash: selectedRelease.apk_hash,
                             apk_name: selectedRelease.apk_name,
                             apk_url: `/api/apks/${selectedRelease.apk_hash}`,
-                            command: 'install_apk'
+                            command: 'install_apk',
+                            ...(autoDesc ? { description: `Install ${selectedRelease.apk_name} (${selectedRelease.release_tag})` } : {})
+                          };
+                          setEditingProfile({ ...editingProfile, commands: newCommands });
+                        } else {
+                          const newCommands = [...editingProfile.commands];
+                          newCommands[idx] = {
+                            ...newCommands[idx],
+                            apk_hash: undefined,
+                            apk_name: '',
+                            apk_url: ''
                           };
                           setEditingProfile({ ...editingProfile, commands: newCommands });
                         }

@@ -1,12 +1,30 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { profileDb, apkReleaseDb, ignoredSerialDb } from '../services/database';
-import { downloadAndCacheApk, deleteApk } from '../services/apkService';
+import { downloadAndCacheApk, deleteApk, cacheUploadedApk } from '../services/apkService';
 import { triggerManualDownload } from '../services/webhookService';
 import { backfillReleases, getBackfillStatus } from '../services/releaseBackfillService';
 import { requireAuth } from '../middleware/auth';
 import { ConfigProfile, ApiResponse, AdbCommand } from '../models/types';
 
 const router = express.Router();
+
+const APK_DIR = process.env.APK_STORAGE_DIR || './data/apks';
+const MAX_APK_SIZE = parseInt(process.env.MAX_APK_SIZE_BYTES || '524288000');
+
+const upload = multer({
+  dest: path.join(APK_DIR, '_uploads'),
+  limits: { fileSize: MAX_APK_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith('.apk')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .apk files are allowed'));
+    }
+  }
+});
 
 // Apply authentication middleware to all admin routes
 router.use(requireAuth);
@@ -25,13 +43,17 @@ function validateCommand(cmd: any): cmd is AdbCommand {
 
   // Additional validation for app_install category
   if (cmd.category === 'app_install') {
-    if (!cmd.apk_url || typeof cmd.apk_url !== 'string' || cmd.apk_url.length === 0) {
-      return false;
-    }
     if (!cmd.apk_name || typeof cmd.apk_name !== 'string' || cmd.apk_name.length === 0) {
       return false;
     }
-    // Validate URL format
+    // apk_hash alone is sufficient (uploaded APKs); apk_url is optional
+    if (cmd.apk_hash && typeof cmd.apk_hash === 'string' && /^[a-f0-9]{64}$/i.test(cmd.apk_hash)) {
+      return true;
+    }
+    // Without a hash, apk_url must be a valid URL
+    if (!cmd.apk_url || typeof cmd.apk_url !== 'string' || cmd.apk_url.length === 0) {
+      return false;
+    }
     try {
       new URL(cmd.apk_url);
     } catch {
@@ -351,6 +373,56 @@ router.delete('/apk-releases/:id', (req, res) => {
     };
     res.json(response);
   } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Upload an APK file directly
+router.post('/apks/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      const response: ApiResponse = { success: false, error: 'No file uploaded' };
+      return res.status(400).json(response);
+    }
+
+    const displayName = (req.body.display_name as string)?.trim() || req.file.originalname;
+
+    const result = await cacheUploadedApk(req.file.path, displayName);
+    if (!result.success) {
+      const response: ApiResponse = { success: false, error: result.error || 'Failed to cache uploaded APK' };
+      return res.status(500).json(response);
+    }
+
+    const releaseTag = `upload-${Date.now()}`;
+    try {
+      apkReleaseDb.create({
+        release_tag: releaseTag,
+        release_name: displayName,
+        apk_name: displayName,
+        apk_url: '',
+        apk_hash: result.hash!,
+        apk_size: result.size!,
+        download_status: 'completed',
+        source: 'upload'
+      });
+    } catch (dbErr: any) {
+      if (!dbErr.message?.includes('UNIQUE constraint')) throw dbErr;
+    }
+
+    const response: ApiResponse = {
+      success: true,
+      data: { hash: result.hash, size: result.size, name: displayName }
+    };
+    res.json(response);
+  } catch (error) {
+    if (req.file?.path) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+    }
+    console.error('APK upload failed:', error);
     const response: ApiResponse = {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { api } from '../services/apiService';
 
 interface ApkRelease {
   id: number;
@@ -13,7 +14,7 @@ interface ApkRelease {
   published_at?: string;
   detected_at: string;
   downloaded_at?: string;
-  source: 'webhook' | 'manual' | 'poll';
+  source: 'webhook' | 'manual' | 'poll' | 'upload';
 }
 
 export default function ApkReleasesPanel() {
@@ -24,6 +25,10 @@ export default function ApkReleasesPanel() {
   const [backfillStatus, setBackfillStatus] = useState<{ hasReleases: boolean; releaseCount: number; completedCount: number } | null>(null);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadName, setUploadName] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadReleases();
@@ -73,6 +78,22 @@ export default function ApkReleasesPanel() {
       }
     } catch (err) {
       console.error('Failed to check backfill status:', err);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    try {
+      setIsUploading(true);
+      await api.uploadApk(uploadFile, uploadName || undefined);
+      setUploadFile(null);
+      setUploadName('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await loadReleases();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -189,6 +210,7 @@ export default function ApkReleasesPanel() {
       case 'webhook': return 'Webhook';
       case 'manual': return 'Manual';
       case 'poll': return 'Backfill';
+      case 'upload': return 'Upload';
       default: return source;
     }
   };
@@ -230,6 +252,74 @@ export default function ApkReleasesPanel() {
             <li>Click "Add webhook"</li>
           </ol>
         </details>
+      </div>
+
+      {/* Upload APK */}
+      <div style={{
+        padding: '1rem',
+        borderRadius: '6px',
+        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+        border: '1px solid rgba(59, 130, 246, 0.2)',
+        marginBottom: '1rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <span style={{ fontSize: '1.2rem' }}>📤</span>
+          <strong>Upload APK</strong>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 200px' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem', opacity: 0.7 }}>APK File</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".apk"
+              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              disabled={isUploading}
+              style={{ fontSize: '0.875rem', width: '100%' }}
+            />
+          </div>
+          <div style={{ flex: '1 1 150px' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem', opacity: 0.7 }}>Display Name (optional)</label>
+            <input
+              type="text"
+              value={uploadName}
+              onChange={(e) => setUploadName(e.target.value)}
+              placeholder="e.g. MyApp v1.0"
+              disabled={isUploading}
+              style={{
+                width: '100%',
+                padding: '0.375rem 0.5rem',
+                fontSize: '0.875rem',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg)',
+                color: 'inherit'
+              }}
+            />
+          </div>
+          <button
+            onClick={handleUpload}
+            disabled={!uploadFile || isUploading}
+            style={{
+              padding: '0.375rem 1rem',
+              fontSize: '0.875rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: !uploadFile || isUploading ? 'not-allowed' : 'pointer',
+              opacity: !uploadFile || isUploading ? 0.6 : 1,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {isUploading ? 'Uploading...' : 'Upload'}
+          </button>
+        </div>
+        {uploadFile && (
+          <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            Selected: {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
+          </div>
+        )}
       </div>
 
       {/* Releases List */}
