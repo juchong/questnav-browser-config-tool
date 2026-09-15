@@ -869,11 +869,31 @@ export const apkReleaseDb = {
 
   getLatestCompleted(): ApkRelease | undefined {
     return db.prepare(`
-      SELECT * FROM apk_releases 
-      WHERE download_status = 'completed' 
-      ORDER BY published_at DESC 
+      SELECT * FROM apk_releases
+      WHERE download_status = 'completed'
+      ORDER BY published_at DESC
       LIMIT 1
     `).get() as ApkRelease | undefined;
+  },
+
+  // Canonical list of installable QuestNav releases (newest first), excluding manual
+  // uploads. Shared by GET /api/profiles resolution AND /releases/available so the
+  // version offered in the UI can never disagree with the one the backend resolves.
+  // COALESCE keeps ordering sane when published_at is NULL (e.g. manual registration).
+  getAvailableReleases(): ApkRelease[] {
+    return db.prepare(`
+      SELECT * FROM apk_releases
+      WHERE download_status = 'completed'
+        AND apk_hash IS NOT NULL
+        AND source != 'upload'
+      ORDER BY COALESCE(published_at, downloaded_at, detected_at) DESC, id DESC
+    `).all() as ApkRelease[];
+  },
+
+  // Newest installable QuestNav release. Used to resolve app_install commands
+  // marked apk_track: 'latest'.
+  getLatestQuestNavRelease(): ApkRelease | undefined {
+    return this.getAvailableReleases()[0];
   },
 
   create(release: Omit<ApkRelease, 'id' | 'detected_at'>): ApkRelease {

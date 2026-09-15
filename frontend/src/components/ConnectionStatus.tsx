@@ -14,6 +14,8 @@ interface ConnectionStatusProps {
   onInstallQuestNavChange?: (checked: boolean) => void;
   selectedApkHash?: string;
   onSelectedApkHashChange?: (hash: string) => void;
+  onSelectedReleaseTagChange?: (tag: string) => void;
+  onUserPickApk?: () => void;
   onApplyConfiguration?: () => void;
   profile?: ConfigProfile | null;
 }
@@ -37,6 +39,8 @@ export default function ConnectionStatus({
   onInstallQuestNavChange,
   selectedApkHash,
   onSelectedApkHashChange,
+  onSelectedReleaseTagChange,
+  onUserPickApk,
   onApplyConfiguration,
   profile
 }: ConnectionStatusProps) {
@@ -66,6 +70,7 @@ export default function ConnectionStatus({
         // Auto-select the newest release if none selected
         if (data.data.length > 0 && !selectedApkHash && onSelectedApkHashChange) {
           onSelectedApkHashChange(data.data[0].apk_hash);
+          onSelectedReleaseTagChange?.(data.data[0].release_tag);
         }
       }
     } catch (err) {
@@ -181,7 +186,12 @@ export default function ConnectionStatus({
                       </label>
                       <select
                         value={selectedApkHash || ''}
-                        onChange={(e) => onSelectedApkHashChange(e.target.value)}
+                        onChange={(e) => {
+                          onUserPickApk?.();
+                          onSelectedApkHashChange(e.target.value);
+                          const rel = cachedReleases.find(r => r.apk_hash === e.target.value);
+                          onSelectedReleaseTagChange?.(rel?.release_tag || '');
+                        }}
                         disabled={disabled}
                         style={{
                           width: '100%',

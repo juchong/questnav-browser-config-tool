@@ -11,6 +11,8 @@ export interface AdbCommand {
   apk_url?: string;      // Original URL (for reference/re-download)
   apk_name?: string;     // Friendly name of the APK (for app_install commands)
   apk_hash?: string;     // SHA256 hash of downloaded APK (for verification and serving)
+  apk_track?: 'latest';  // If 'latest', the backend rewrites apk_hash/apk_name/apk_url to the newest
+                         // QuestNav release at serve time. Leave unset to pin a specific version.
 }
 
 export interface ConfigProfile {

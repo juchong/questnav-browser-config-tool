@@ -951,7 +951,45 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 {/* APK-specific fields for app_install category */}
                 {cmd.category === 'app_install' && (
                   <>
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', marginTop: '0.5rem' }}>Select Cached APK:</label>
+                    {/* Always-latest toggle: backend serves the newest release at apply time */}
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginTop: '0.5rem', marginBottom: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={cmd.apk_track === 'latest'}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          const newCommands = [...editingProfile.commands];
+                          newCommands[idx] = {
+                            ...newCommands[idx],
+                            apk_track: on ? 'latest' : undefined,
+                            ...(on && !newCommands[idx].apk_name ? { apk_name: 'Android.apk' } : {})
+                          };
+                          setEditingProfile({ ...editingProfile, commands: newCommands });
+                        }}
+                        style={{ marginTop: '0.15rem' }}
+                      />
+                      <span><strong>Always install latest release</strong> — auto-updates to the newest QuestNav release at apply time; no re-pinning needed each release.</span>
+                    </label>
+
+                    {cmd.apk_track === 'latest' && (
+                      <div style={{
+                        padding: '0.75rem',
+                        backgroundColor: '#3b82f615',
+                        border: '1px solid #3b82f6',
+                        borderRadius: '4px',
+                        fontSize: '0.875rem',
+                        marginBottom: '0.5rem'
+                      }}>
+                        <div style={{ color: '#3b82f6' }}><strong>⭐ Tracking latest release</strong></div>
+                        <div style={{ opacity: 0.8, fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                          Users always get the newest QuestNav release. The selection below is only an optional fallback if no release is cached.
+                        </div>
+                      </div>
+                    )}
+
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                      {cmd.apk_track === 'latest' ? 'Optional fallback version:' : 'Select Cached APK:'}
+                    </label>
                     <select
                       value={cmd.apk_hash || ''}
                       onChange={(e) => {

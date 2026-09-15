@@ -78,21 +78,17 @@ function isValidApkUrl(url: string): { valid: boolean; error?: string } {
 // Returns only completed releases with necessary info for version selection
 router.get('/releases/available', (req, res) => {
   try {
-    const releases = apkReleaseDb.getAll()
-      .filter(r => r.download_status === 'completed' && r.apk_hash)
+    // Use the canonical available-releases list (excludes manual uploads, newest first)
+    // so the version a user can pick is exactly the set/order the backend resolves
+    // apk_track:'latest' from — the two can never disagree.
+    const releases = apkReleaseDb.getAvailableReleases()
       .map(r => ({
         release_tag: r.release_tag,
         apk_name: r.apk_name,
         apk_hash: r.apk_hash,
         apk_size: r.apk_size,
         published_at: r.published_at
-      }))
-      .sort((a, b) => {
-        // Sort by published date, newest first
-        const dateA = new Date(a.published_at || 0).getTime();
-        const dateB = new Date(b.published_at || 0).getTime();
-        return dateB - dateA;
-      });
+      }));
     
     const response: ApiResponse = {
       success: true,

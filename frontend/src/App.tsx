@@ -40,6 +40,8 @@ function App() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [installQuestNav, setInstallQuestNav] = useState(true); // State for QuestNav installation
   const [selectedApkHash, setSelectedApkHash] = useState<string>(''); // State for selected APK version
+  const [selectedReleaseTag, setSelectedReleaseTag] = useState<string>(''); // Release tag for selected APK (for logging)
+  const [userPickedApk, setUserPickedApk] = useState(false); // True only when the user actively chose a version (not the auto-selected default)
   const [profile, setProfile] = useState<ConfigProfile | null>(null); // State for loaded profile
   const [showConfetti, setShowConfetti] = useState(false); // State for confetti celebration
   const [windowDimensions, setWindowDimensions] = useState({ 
@@ -222,6 +224,9 @@ function App() {
     
     // Filter commands based on requires_questnav condition
     allCommands = allCommands.filter(cmd => {
+      // A 'latest'-tracking QuestNav install is gated by the Install-QuestNav toggle,
+      // regardless of its requires_questnav value (so opting out never installs it).
+      if (cmd.category === 'app_install' && cmd.apk_track === 'latest') return installQuestNav;
       // If command has no condition, always include it
       if (!cmd.requires_questnav) return true;
       // If condition is 'with', only include if user is installing QuestNav
@@ -231,22 +236,40 @@ function App() {
       return true;
     });
     
-    // If user opted in for QuestNav, add a dynamic install at the end
-    // (only if no QuestNav-specific app_install already exists in the profile)
-    if (installQuestNav && selectedApkHash) {
-      const hasQuestNavInstall = allCommands.some(
-        cmd => cmd.category === 'app_install' && cmd.requires_questnav === 'with'
+    // Decide which QuestNav APK actually gets installed.
+    // The backend already resolved the profile's apk_track:'latest' install to the newest
+    // release. Here we (a) honor an explicit user version override from the dropdown, and
+    // (b) fall back to appending a dynamic install for legacy profiles that have none.
+    if (installQuestNav) {
+      const latestIdx = allCommands.findIndex(
+        cmd => cmd.category === 'app_install' && cmd.apk_track === 'latest'
       );
-      if (!hasQuestNavInstall) {
-        allCommands.push({
-          command: 'install_apk',
-          description: `Install QuestNav APK`,
-          category: 'app_install',
-          apk_url: `/api/apks/${selectedApkHash}`,
-          apk_name: 'QuestNav.apk',
-          apk_hash: selectedApkHash,
-          requires_questnav: 'with'
-        });
+      if (latestIdx >= 0) {
+        // Only a DELIBERATE user pick overrides the backend-resolved latest — the dropdown
+        // auto-selects the newest on load, and that must not count as an override.
+        if (userPickedApk && selectedApkHash && selectedApkHash !== allCommands[latestIdx].apk_hash) {
+          allCommands[latestIdx] = {
+            ...allCommands[latestIdx],
+            apk_hash: selectedApkHash,
+            apk_url: `/api/apks/${selectedApkHash}`
+          };
+        }
+      } else if (selectedApkHash) {
+        // Legacy profile with no QuestNav install command: append one using the selection
+        const hasQuestNavInstall = allCommands.some(
+          cmd => cmd.category === 'app_install' && cmd.requires_questnav === 'with'
+        );
+        if (!hasQuestNavInstall) {
+          allCommands.push({
+            command: 'install_apk',
+            description: `Install QuestNav APK`,
+            category: 'app_install',
+            apk_url: `/api/apks/${selectedApkHash}`,
+            apk_name: 'QuestNav.apk',
+            apk_hash: selectedApkHash,
+            requires_questnav: 'with'
+          });
+        }
       }
     }
 
@@ -258,6 +281,9 @@ function App() {
     // Count visible commands for progress display
     const visibleCommands = allCommands.filter(cmd => !cmd.is_hidden);
     const visibleCount = visibleCommands.length;
+
+    // Version tag actually being installed, for logging (undefined when not installing QuestNav)
+    const questNavVersion = installQuestNav ? (selectedReleaseTag || 'unknown') : undefined;
 
     setIsExecuting(true);
     setProgress({
@@ -367,12 +393,6 @@ function App() {
         
         // Log success with full details
         if (profile.id) {
-          // Find QuestNav version from executed app_install commands
-          const questNavCmd = allCommands.find(cmd => cmd.category === 'app_install');
-          const questNavVersion = questNavCmd?.description?.match(/v[\d.]+/)?.[0] || 
-                                  questNavCmd?.apk_name?.match(/v[\d.]+/)?.[0] || 
-                                  (questNavCmd ? 'unknown' : undefined);
-          
           await api.logExecution({
             profile_id: profile.id,
             status: 'success',
@@ -400,11 +420,6 @@ function App() {
         
         // Log failure with full details
         if (profile.id) {
-          const questNavCmd = allCommands.find(cmd => cmd.category === 'app_install');
-          const questNavVersion = questNavCmd?.description?.match(/v[\d.]+/)?.[0] || 
-                                  questNavCmd?.apk_name?.match(/v[\d.]+/)?.[0] || 
-                                  (questNavCmd ? 'unknown' : undefined);
-          
           await api.logExecution({
             profile_id: profile.id,
             status: 'failure',
@@ -438,11 +453,6 @@ function App() {
         
         // Log partial success with full details
         if (profile.id) {
-          const questNavCmd = allCommands.find(cmd => cmd.category === 'app_install');
-          const questNavVersion = questNavCmd?.description?.match(/v[\d.]+/)?.[0] || 
-                                  questNavCmd?.apk_name?.match(/v[\d.]+/)?.[0] || 
-                                  (questNavCmd ? 'unknown' : undefined);
-          
           await api.logExecution({
             profile_id: profile.id,
             status: 'partial',
@@ -697,6 +707,8 @@ function App() {
             onInstallQuestNavChange={setInstallQuestNav}
             selectedApkHash={selectedApkHash}
             onSelectedApkHashChange={setSelectedApkHash}
+            onSelectedReleaseTagChange={setSelectedReleaseTag}
+            onUserPickApk={() => setUserPickedApk(true)}
             onApplyConfiguration={connectionState.connected && profile ? () => handleApplyConfiguration(profile, installQuestNav) : undefined}
             profile={profile}
           />

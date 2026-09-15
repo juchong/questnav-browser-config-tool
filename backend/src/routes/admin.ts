@@ -42,8 +42,17 @@ function validateCommand(cmd: any): cmd is AdbCommand {
     return false;
   }
 
+  // Optional apk_track: only 'latest' is valid when present
+  if (cmd.apk_track !== undefined && cmd.apk_track !== 'latest') {
+    return false;
+  }
+
   // Additional validation for app_install category
   if (cmd.category === 'app_install') {
+    // 'latest'-tracking installs resolve apk_hash/apk_name/apk_url at serve time — no pin required
+    if (cmd.apk_track === 'latest') {
+      return true;
+    }
     if (!cmd.apk_name || typeof cmd.apk_name !== 'string' || cmd.apk_name.length === 0) {
       return false;
     }
