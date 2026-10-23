@@ -165,7 +165,7 @@ questnav-browser-config-tool/
 - USB-C cable
 
 ### Developers
-- Node.js 20 LTS
+- Node.js 24 LTS
 - npm 8+
 - (Optional) Docker + Docker Compose
 
